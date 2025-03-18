@@ -1,6 +1,8 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
+#include "Shader.h"
+
 #include <iostream>
 
 #define WIN_WIDTH 800
@@ -20,11 +22,11 @@ private:
     unsigned int VBO;
 
     // hardcoded vertices (for the moment)
-    float vertices[12] = {
-        0.5f,  0.5f, 0.0f,  // top right
-        0.5f, -0.5f, 0.0f,  // bottom right
-       -0.5f, -0.5f, 0.0f,  // bottom left
-       -0.5f,  0.5f, 0.0f   // top left 
+    float vertices[24] = {
+        0.5f,  0.5f, 0.0f, 1.f, .0f, .0f, // top right
+        0.5f, -0.5f, 0.0f, .0f, 1.f, .0f, // bottom right
+       -0.5f, -0.5f, 0.0f, .0f, .0f, 1.f,  // bottom left
+       -0.5f,  0.5f, 0.0f, 1.f, 1.f, 1.f   // top left 
    };
 
    unsigned int indices[6] = {  // note that we start from 0!
@@ -32,30 +34,7 @@ private:
         1, 2, 3    // second triangle
     }; 
 
-    // hardcoded vertex shader for now
-    const char *vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}\0"; 
-
-    // vertex shader related variables
-    unsigned int vertexShader;
-
-    // hardcoded fragment shder for the moment
-    const char *fragmentShaderSource = "#version 330 core\n"
-        "out vec4 FragColor;\n"
-        "void main()\n"
-        "{\n"
-            "FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-        "}\0";
-    
-    // fragment shader related variables
-    unsigned int fragmentShader;
-
-    // Shader program object
-    unsigned int shaderProgram;
+    Shader *mainShader;
 
     // Vertex Attribute Object
     unsigned int VAO;

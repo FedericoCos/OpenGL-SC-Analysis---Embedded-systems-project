@@ -1,4 +1,5 @@
 #include "main.h"
+#include "math.h"
 
 void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int heihgt){
     glViewport(0, 0, width, heihgt);
@@ -32,6 +33,8 @@ int Engine::init(){
 
     init_VAO();
     init_buffers();
+    Shader tempShade("shaders/vertex.glsl", "shaders/fragment.glsl");
+    mainShader = &tempShade;
     init_shaders();
 
     return 0;
@@ -63,20 +66,7 @@ void Engine::init_buffers(){
 }
 
 void Engine::init_shaders(){
-    // Vertex shader
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL); // second argument is number of strings as source code
-    glCompileShader(vertexShader);
-
-    // error checking for vertex shader
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-
-    if(!success){
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
+    
 
     /**
      * We have to tell how to read the vertices
@@ -88,37 +78,13 @@ void Engine::init_shaders(){
      * distance between consecutive vertices
      * offset of first vertex from buffer init position
      */
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);  
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+    glEnableVertexAttribArray(1); 
 
-
-    // Fragment shader
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-
-    if(!success){
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Creation of a shader program
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    glUseProgram(shaderProgram);
-
-    // delete shaders already linked
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
 }
 
 void Engine::render_loop(){
@@ -139,15 +105,21 @@ void Engine::render_loop(){
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
-    glDeleteProgram(shaderProgram);
+    //glDeleteProgram(shaderProgram);
 
     glfwTerminate();
 }
 
 void Engine::draw(){
-    glUseProgram(shaderProgram);
+    mainShader -> use();
+
+    /* float timeValue = glfwGetTime();
+    float greenValue = sin(timeValue) / 2.f + .5f;
+    int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
+    glUniform4f(vertexColorLocation, .0f, greenValue, .0f, 1.f); */
+
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    // glDrawArrays(GL_TRIANGLES, 0, 3);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
