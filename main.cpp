@@ -12,7 +12,7 @@ int Engine::init(){
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // first argument is what we want to configure
                                                    // second is the value for that option
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // load open gl functions with no back compatibility
 
     window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "OpenGL", NULL, NULL);
     if(window == NULL){
@@ -23,6 +23,9 @@ int Engine::init(){
     glfwMakeContextCurrent(window);
 
     // GLAD initialization
+    /**
+     * GLAD contains alla the fucntions not available in system OpenGL Library
+     */
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
