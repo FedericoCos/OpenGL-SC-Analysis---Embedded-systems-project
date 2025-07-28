@@ -32,7 +32,7 @@ int Engine::init(){
     }
 
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT); // lower-left corner of the window, and dimension
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetFramebufferSizeCallback(window, Engine::framebuffer_size_callback);
 
 
     stbi_set_flip_vertically_on_load(true);
@@ -55,16 +55,31 @@ void Engine::process_input(){
     if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS){
         mix_val = std::max(mix_val-0.1f, 0.0f);
     }
+
+    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
+        cam -> position += cam -> vel * cam -> front;
+    }
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
+        cam -> position -= cam -> vel * cam -> front;
+    }
+    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
+        cam -> position -= glm::normalize(glm::cross(cam ->front, glm::vec3(0.0f, 1.0f, 0.0f))) * cam -> vel;
+    }
+    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
+        cam -> position += glm::normalize(glm::cross(cam ->front, glm::vec3(0.0f, 1.0f, 0.0f))) * cam -> vel;
+    }
     
 }
 
 void Engine::init_VAO(){
     // Genrating VAO
-    glGenVertexArrays(NUM, VAO);
+    // glGenVertexArrays(NUM, VAO);
+    glGenVertexArrays(1, &cVAO);
 }
 
 void Engine::init_buffers(){
     // Vertex buffer Object
+    /*
     glGenBuffers(NUM, VBO); 
     glGenBuffers(NUM, EBO);
 
@@ -86,7 +101,7 @@ void Engine::init_buffers(){
          * whether normalized or not
          * distance between consecutive vertices
          * offset of first vertex from buffer init position
-         */
+         *//*
         // position attribute
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
@@ -98,6 +113,30 @@ void Engine::init_buffers(){
         glEnableVertexAttribArray(2); 
     }
     glBindVertexArray(0); // Good practice
+    */
+
+    glGenBuffers(1, &cVBO);
+    glGenBuffers(1, &cEBO);
+
+    glBindVertexArray(cVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, cVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW); // copies vertices on the GPU (buffer memory)
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
+    glEnableVertexAttribArray(1); 
+    // texture attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6* sizeof(float)));
+    glEnableVertexAttribArray(2); 
+
+    glBindVertexArray(0);
+
 }
 
 void Engine::init_shaders(){
@@ -142,17 +181,34 @@ void Engine::init_textures(){
 }
 
 void Engine::render_loop(){
+    glfwWindowHint(GLFW_DEPTH_BITS, 24);
+    glEnable(GL_DEPTH_TEST);
+
+    for(int i = 0; i < CUBES; i++){
+        tr[i] = std::max((rand() % 50 * 0.1f), 0.5f) * glm::normalize(glm::vec3(rand() % 10 - 5, rand() % 10 - 5, rand() % 10 - 5));
+        sc[i] = glm::vec3(std::max(rand() % 10 * 0.1f, 0.1f));
+        rot[i] = glm::normalize(glm::vec3(std::min(rand() % 10 * 0.1f, 0.1f), std::min(rand() % 10 * 0.1f, 0.1f), std::min(rand() % 10 * 0.1f, 0.1f)));
+    }
+
+    glm::vec3 pos = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
+    cam = new Camera(pos, tar, 0.05f);
+
+    projection = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f);
 
     while(!glfwWindowShouldClose(window))
     {
         process_input();
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         draw();
 
         glfwSwapBuffers(window);
+        if(!window){
+            std::cout << "madonna" << std::endl;
+        }
         glfwPollEvents(); 
     }
 
@@ -165,7 +221,7 @@ void Engine::render_loop(){
 }
 
 void Engine::draw(){
-    for(int i = 0; i < NUM; i++){
+    /* for(int i = 0; i < NUM; i++){
         shaders[i] -> use();
         glBindVertexArray(VAO[i]);
         if(i == 0){
@@ -187,7 +243,35 @@ void Engine::draw(){
 
         // glDrawArrays(GL_TRIANGLES, 0, 3);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    } */
+
+    shaders[0] -> use();
+    glBindVertexArray(cVAO);
+    glUniform1i(glGetUniformLocation(shaders[0]->ID, "texture1"), 0);
+    shaders[0] -> setInt("texture2", 1);
+    shaders[0] -> setFloat("mix_val", mix_val);
+    // bind textures
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texture[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
+    for(int i = 0; i < CUBES; i++){
+
+        trans[i] = glm::mat4(1.0f);
+        trans[i] = glm::scale(trans[i], sc[i]);
+        trans[i] = glm::translate(trans[i], tr[i]);
+        trans[i] = glm::rotate(trans[i], (float)glfwGetTime(), rot[i]);
+
+        trans[i] = cam -> viewAtMat() * trans[i];
+        trans[i] = projection * trans[i];
+
+        shaders[0] -> setMatrix("transform", trans[i]);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     }
+
 }
 
 
