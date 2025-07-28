@@ -27,17 +27,17 @@ private:
     unsigned int VBO[NUM];
 
     // hardcoded vertices (for the moment)
-    float vertices[NUM][24] = {{
-        0.0f,  0.5f, 0.0f, 1.f, .0f, .0f, // top right
-        0.0f, -0.5f, 0.0f, .0f, 1.f, .0f, // bottom right
-       -0.5f, -0.5f, 0.0f, .0f, .0f, 1.f,  // bottom left
-       -0.5f,  0.5f, 0.0f, 1.f, 1.f, 1.f // top left 
+    float vertices[NUM][32] = {{
+        0.0f,  0.5f, 0.0f, 1.f, .0f, .0f, 2.0f, 2.0f, // top right
+        0.0f, -0.5f, 0.0f, .0f, 1.f, .0f, 2.0f, 0.0f, // bottom right
+       -0.5f, -0.5f, 0.0f, .0f, .0f, 1.f, 0.0f, 0.0f,  // bottom left
+       -0.5f,  0.5f, 0.0f, 1.f, 1.f, 1.f, 0.0f, 2.0f // top left 
       }, 
       {
-        0.5f,  0.5f, 0.0f, 1.f, .0f, .0f, // top right
-        0.5f, -0.5f, 0.0f, .0f, 1.f, .0f, // bottom right
-        0.0f, -0.5f, 0.0f, .0f, .0f, 1.f,  // bottom left
-        0.0f,  0.5f, 0.0f, 1.f, 1.f, 1.f   // top left 
+        0.5f,  0.5f, 0.0f, 1.f, .0f, .0f, 1.0f, 1.0f, // top right
+        0.5f, -0.5f, 0.0f, .0f, 1.f, .0f, 1.0f, 0.0f, // bottom right
+        0.0f, -0.5f, 0.0f, .0f, .0f, 1.f, 0.0f, 0.0f,  // bottom left
+        0.0f,  0.5f, 0.0f, 1.f, 1.f, 1.f, 0.0f, 1.0f   // top left 
       } 
    };
 
@@ -50,17 +50,7 @@ private:
    }
     }; 
 
-    float vertices_c[24] = {
-        0.5f,  0.5f, 0.0f, 1.f, .0f, .0f, // top right
-        0.0f, -0.5f, 0.0f, .0f, 1.f, .0f, // bottom right
-       -0.0f, -0.5f, 0.0f, .0f, .0f, 1.f,  // bottom left
-       -0.0f,  0.5f, 0.0f, 1.f, 1.f, 1.f   // top left 
-   };
-
-   unsigned int indices_c[6] = {  // note that we start from 0!
-        0, 1, 3,   // first triangle
-        1, 2, 3    // second triangle
-    }; 
+    float mix_val = 0.2;
 
     Shader * shaders[NUM];
 

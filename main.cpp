@@ -49,6 +49,13 @@ void Engine::process_input(){
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
         glfwSetWindowShouldClose(window, true);
     }
+    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS){
+        mix_val = std::min(mix_val+0.1f, 1.0f);
+    }
+    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS){
+        mix_val = std::max(mix_val-0.1f, 0.0f);
+    }
+    
 }
 
 void Engine::init_VAO(){
@@ -81,11 +88,14 @@ void Engine::init_buffers(){
          * offset of first vertex from buffer init position
          */
         // position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
         // color attribute
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3* sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
         glEnableVertexAttribArray(1); 
+        // texture attribute
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6* sizeof(float)));
+        glEnableVertexAttribArray(2); 
     }
     glBindVertexArray(0); // Good practice
 }
@@ -156,8 +166,19 @@ void Engine::render_loop(){
 
 void Engine::draw(){
     for(int i = 0; i < NUM; i++){
-        glBindVertexArray(VAO[i]);
         shaders[i] -> use();
+        glBindVertexArray(VAO[i]);
+        if(i == 0){
+            glUniform1i(glGetUniformLocation(shaders[i]->ID, "texture1"), 0);
+            shaders[i] -> setInt("texture2", 1);
+            shaders[i] -> setFloat("mix_val", mix_val);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture[0]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, texture[1]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        }
 
         // glDrawArrays(GL_TRIANGLES, 0, 3);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
