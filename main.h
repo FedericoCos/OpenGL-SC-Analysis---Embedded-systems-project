@@ -69,7 +69,7 @@ private:
     unsigned int texture[2];
 
     // transformation matrix
-    glm::mat4 trans;
+    glm::mat4 trans[NUM];
 
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     void process_input();
