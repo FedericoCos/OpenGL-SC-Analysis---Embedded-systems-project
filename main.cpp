@@ -150,6 +150,10 @@ void Engine::render_loop(){
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
+        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
         draw();
 
         glfwSwapBuffers(window);
@@ -179,6 +183,8 @@ void Engine::draw(){
             glBindTexture(GL_TEXTURE_2D, texture[1]);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         }
+
+        shaders[i] -> setMatrix("transform", trans);
 
         // glDrawArrays(GL_TRIANGLES, 0, 3);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

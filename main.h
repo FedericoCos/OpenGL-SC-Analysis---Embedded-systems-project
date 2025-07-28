@@ -6,6 +6,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <iostream>
 
 #define WIN_WIDTH 800
@@ -62,6 +67,9 @@ private:
 
     // texture placeholder
     unsigned int texture[2];
+
+    // transformation matrix
+    glm::mat4 trans;
 
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     void process_input();
