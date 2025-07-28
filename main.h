@@ -1,7 +1,10 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
-#include "Shader.h"
+#include "shader.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include <iostream>
 
@@ -67,10 +70,14 @@ private:
     // Element Buuffer Object
     unsigned int EBO[NUM];
 
+    // texture placeholder
+    unsigned int texture[2];
+
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     void process_input();
     void init_buffers();
     void init_shaders();
     void init_VAO();
+    void init_textures();
     void draw();
 };

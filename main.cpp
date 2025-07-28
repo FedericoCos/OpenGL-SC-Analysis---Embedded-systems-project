@@ -34,7 +34,11 @@ int Engine::init(){
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT); // lower-left corner of the window, and dimension
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+
+    stbi_set_flip_vertically_on_load(true);
+
     init_VAO();
+    init_textures();
     init_buffers();
     init_shaders();
 
@@ -90,6 +94,41 @@ void Engine::init_shaders(){
     shaders[0] = new Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
     shaders[1] = new Shader("shaders/vertex.glsl", "shaders/fragment_yellow.glsl");
 
+}
+
+void Engine::init_textures(){
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load("textures/wall.jpg", &width, &height, &nrChannels, 0); 
+    if(!data){
+        std::cout << "Failed to load texture" << std::endl;
+        exit(0);
+    }
+
+    glGenTextures(2, texture);
+    glBindTexture(GL_TEXTURE_2D, texture[0]);
+    /**
+     * 
+    The first argument specifies the texture target; setting this to GL_TEXTURE_2D means this operation will generate a texture on the currently bound texture object at the same target (so any textures bound to targets GL_TEXTURE_1D or GL_TEXTURE_3D will not be affected).
+    The second argument specifies the mipmap level for which we want to create a texture for if you want to set each mipmap level manually, but we'll leave it at the base level which is 0.
+    The third argument tells OpenGL in what kind of format we want to store the texture. Our image has only RGB values so we'll store the texture with RGB values as well.
+    The 4th and 5th argument sets the width and height of the resulting texture. We stored those earlier when loading the image so we'll use the corresponding variables.
+    The next argument should always be 0 (some legacy stuff).
+    The 7th and 8th argument specify the format and datatype of the source image. We loaded the image with RGB values and stored them as chars (bytes) so we'll pass in the corresponding values.
+    The last argument is the actual image data.
+     */
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    stbi_image_free(data);
+    
+
+    glBindTexture(GL_TEXTURE_2D, texture[1]);
+    data = stbi_load("textures/awesomeface.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
 }
 
 void Engine::render_loop(){
