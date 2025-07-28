@@ -206,15 +206,12 @@ void Engine::render_loop(){
         draw();
 
         glfwSwapBuffers(window);
-        if(!window){
-            std::cout << "madonna" << std::endl;
-        }
         glfwPollEvents(); 
     }
 
-    glDeleteVertexArrays(NUM, VAO);
-    glDeleteBuffers(NUM, VBO);
-    glDeleteBuffers(NUM, EBO);
+    glDeleteVertexArrays(1, &cVAO);
+    glDeleteBuffers(1, &cVBO);
+    glDeleteBuffers(1, &cEBO);
     //glDeleteProgram(shaderProgram);
 
     glfwTerminate();
@@ -271,6 +268,7 @@ void Engine::draw(){
         shaders[0] -> setMatrix("transform", trans[i]);
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     }
+    glBindVertexArray(0);
 
 }
 
