@@ -19,7 +19,7 @@
 #define WIN_HEIGHT 600
 
 #define NUM 2
-#define CUBES 10
+#define CUBES 1000
 
 
 class Engine{
@@ -30,6 +30,8 @@ public:
 
 private:
     GLFWwindow * window;
+    float past_time = 0;
+    float dtime;
 
     // buffers for shaders
     unsigned int VBO[NUM];
@@ -107,42 +109,14 @@ private:
     glm::vec3 rot[CUBES];
 
     Camera * cam;
+    glm::vec2 left_input;
+    glm::vec2 right_input;
 
     glm::mat4 projection;
-
-    // hardcoded vertices (for the moment)
-    float vertices[NUM][32] = {{
-        0.0f,  0.5f, 0.0f, 1.f, .0f, .0f, 2.0f, 2.0f, // top right
-        0.0f, -0.5f, 0.0f, .0f, 1.f, .0f, 2.0f, 0.0f, // bottom right
-       -0.5f, -0.5f, 0.0f, .0f, .0f, 1.f, 0.0f, 0.0f,  // bottom left
-       -0.5f,  0.5f, 0.0f, 1.f, 1.f, 1.f, 0.0f, 2.0f // top left 
-      }, 
-      {
-        0.5f,  0.5f, 0.0f, 1.f, .0f, .0f, 1.0f, 1.0f, // top right
-        0.5f, -0.5f, 0.0f, .0f, 1.f, .0f, 1.0f, 0.0f, // bottom right
-        0.0f, -0.5f, 0.0f, .0f, .0f, 1.f, 0.0f, 0.0f,  // bottom left
-        0.0f,  0.5f, 0.0f, 1.f, 1.f, 1.f, 0.0f, 1.0f   // top left 
-      } 
-   };
-
-   unsigned int indices[NUM][6] = {{  // note that we start from 0!
-        0, 1, 3,   // first triangle
-        1, 2, 3    // second triangle
-   },{
-        0, 1, 3,
-        1, 2, 3
-   }
-    }; 
 
     float mix_val = 0.2;
 
     Shader * shaders[NUM];
-
-    // Vertex Attribute Object
-    unsigned int VAO[NUM];
-
-    // Element Buuffer Object
-    unsigned int EBO[NUM];
 
     // texture placeholder
     unsigned int texture[2];
