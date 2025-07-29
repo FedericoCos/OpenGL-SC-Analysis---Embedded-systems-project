@@ -37,6 +37,20 @@ int Engine::init(){
 
     stbi_set_flip_vertically_on_load(true);
 
+    tr.resize(CUBES);
+    sc.resize(CUBES);
+    rot.resize(CUBES);
+    trans.resize(CUBES);
+
+    cubes_tot = 1000;
+
+    // Random variables for cubes
+    for(int i = 0; i < CUBES; i++){
+        tr[i] = std::max((rand() % 1000 * 0.1f), 0.5f) * glm::normalize(glm::vec3(rand() % 10 - 5, rand() % 10 - 5, rand() % 10 - 5));
+        sc[i] = glm::vec3(std::max(rand() % 10 * 0.1f, 0.1f));
+        rot[i] = glm::normalize(glm::vec3(std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f)));
+    }
+
     init_VAO();
     init_textures();
     init_buffers();
@@ -46,6 +60,9 @@ int Engine::init(){
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 3.0f);
     glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
     cam = new Camera(pos, tar, 30.0f, 2.5f);
+
+    // To disable vsync
+    glfwSwapInterval(0);
 
     return 0;
 }
@@ -116,6 +133,24 @@ void Engine::init_buffers(){
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6* sizeof(float)));
     glEnableVertexAttribArray(2); 
 
+    glGenBuffers(1, &instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, CUBES * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+
+    std::size_t vec4Size = sizeof(glm::vec4);
+    for (int i = 0; i < 4; i++) {
+        glEnableVertexAttribArray(3 + i);
+        glVertexAttribPointer(3 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(i * vec4Size));
+        glVertexAttribDivisor(3 + i, 1); 
+    }
+
+    glGenBuffers(1, &rotAxisVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, rotAxisVBO);
+    glBufferData(GL_ARRAY_BUFFER, CUBES * sizeof(glm::vec3), rot.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(7);
+    glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glVertexAttribDivisor(7, 1);
+
     glBindVertexArray(0);
 
 }
@@ -155,14 +190,15 @@ void Engine::render_loop(){
     glfwWindowHint(GLFW_DEPTH_BITS, 24);
     glEnable(GL_DEPTH_TEST);
 
-    // Random variables for cubes
-    for(int i = 0; i < CUBES; i++){
-        tr[i] = std::max((rand() % 1000 * 0.1f), 0.5f) * glm::normalize(glm::vec3(rand() % 10 - 5, rand() % 10 - 5, rand() % 10 - 5));
-        sc[i] = glm::vec3(std::max(rand() % 10 * 0.1f, 0.1f));
-        rot[i] = glm::normalize(glm::vec3(std::min(rand() % 10 * 0.1f, 0.1f), std::min(rand() % 10 * 0.1f, 0.1f), std::min(rand() % 10 * 0.1f, 0.1f)));
-    }
-
     projection = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f);
+
+    // ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
 
     while(!glfwWindowShouldClose(window))
     {   
@@ -175,11 +211,36 @@ void Engine::render_loop(){
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
         draw();
+
+        ImGui::Begin("STATS");
+        ImGui::Text("FPS: %.1f", 1.0f / dtime);
+        ImGui::End();
+        
+		ImGui::Begin("CUBES");
+        ImGui::InputInt("Num Cubes", &cubes_tot);
+        cubes_tot = std::min(CUBES, cubes_tot);
+        ImGui::InputFloat("Spread fact", &spread);
+        ImGui::InputFloat("Rot Speed", &rot_speed);
+
+		// Ends the window
+		ImGui::End();
+
+        ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
         glfwPollEvents(); 
     }
+
+    // Deletes all ImGUI instances
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
     glDeleteVertexArrays(1, &cVAO);
     glDeleteBuffers(1, &cVBO);
@@ -199,6 +260,9 @@ void Engine::draw(){
     glm::mat4 view = cam -> viewAtMat();
     shaders[0] -> setMatrix("view", view);
     shaders[0] -> setMatrix("projection", projection);
+
+    shaders[0]->setFloat("time", (float)glfwGetTime());
+    shaders[0]->setFloat("rotSpeed", rot_speed);
     
     // bind textures
     glActiveTexture(GL_TEXTURE0);
@@ -208,16 +272,20 @@ void Engine::draw(){
     glBindTexture(GL_TEXTURE_2D, texture[1]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
-    for(int i = 0; i < CUBES; i++){
-
+    for (int i = 0; i < cubes_tot; i++) {
         trans[i] = glm::mat4(1.0f);
         trans[i] = glm::scale(trans[i], sc[i]);
-        trans[i] = glm::translate(trans[i], tr[i]);
-        trans[i] = glm::rotate(trans[i], (float)glfwGetTime(), rot[i]);
-
-        shaders[0] -> setMatrix("transform", trans[i]);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        trans[i] = glm::translate(trans[i], spread * tr[i]);
     }
+
+    glBindBuffer(GL_ARRAY_BUFFER, rotAxisVBO);
+
+    // Upload all instance transforms in one go
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, cubes_tot * sizeof(glm::mat4), trans.data());
+
+    // One draw call only
+    glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, cubes_tot);
     glBindVertexArray(0);
 
 }

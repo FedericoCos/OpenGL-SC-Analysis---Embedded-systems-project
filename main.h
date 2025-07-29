@@ -1,4 +1,9 @@
 #pragma once
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_glfw.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
+
+
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 
@@ -14,12 +19,13 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
+#include <vector>
 
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
 
 #define NUM 2
-#define CUBES 1000
+#define CUBES 1000000
 
 
 class Engine{
@@ -103,10 +109,17 @@ private:
     unsigned int cVBO; // Buffer for cube indices, just a single one
     unsigned int cEBO; // same as above
     unsigned int cVAO;
+    unsigned int instanceVBO;
+    unsigned int rotAxisVBO;
 
-    glm::vec3 tr[CUBES];
-    glm::vec3 sc[CUBES];
-    glm::vec3 rot[CUBES];
+    std::vector<glm::vec3> tr;
+    std::vector<glm::vec3> sc;
+    std::vector<glm::vec3> rot;
+    std::vector<glm::mat4> trans;
+
+    int cubes_tot;
+    float spread = 1.0f;
+    float rot_speed = 1.0f;
 
     Camera * cam;
     glm::vec2 left_input;
@@ -120,9 +133,6 @@ private:
 
     // texture placeholder
     unsigned int texture[2];
-
-    // transformation matrix
-    glm::mat4 trans[CUBES];
 
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     void process_input();
