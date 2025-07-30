@@ -32,6 +32,8 @@ int Engine::init(){
     }
 
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT); // lower-left corner of the window, and dimension
+    width = WIN_WIDTH;
+    height = WIN_HEIGHT;
     glfwSetFramebufferSizeCallback(window, Engine::framebuffer_size_callback);
 
 
@@ -190,7 +192,7 @@ void Engine::render_loop(){
     glfwWindowHint(GLFW_DEPTH_BITS, 24);
     glEnable(GL_DEPTH_TEST);
 
-    projection = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f);
+    projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
 
     // ImGui
     IMGUI_CHECKVERSION();
@@ -226,9 +228,32 @@ void Engine::render_loop(){
         cubes_tot = std::min(CUBES, cubes_tot);
         ImGui::InputFloat("Spread fact", &spread);
         ImGui::InputFloat("Rot Speed", &rot_speed);
-
-		// Ends the window
 		ImGui::End();
+
+        ImGui::Begin("CAMERA");
+        int w = width, h = height;
+        float np = near_plane, fp = far_plane, f = fov;
+        ImGui::InputFloat("FOV", &f);
+        ImGui::InputFloat("Near Plane", &np);
+        ImGui::InputFloat("Far Plane", &fp);
+        glfwGetWindowSize(window, &w, &h);
+        if(
+            w != width ||
+            h != height ||
+            np != near_plane ||
+            fp != far_plane ||
+            f != fov
+        ){
+            width = w;
+            height = h;
+            near_plane = np;
+            far_plane = fp;
+            fov = f;
+            projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
+        }
+
+
+        ImGui::End();
 
         ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

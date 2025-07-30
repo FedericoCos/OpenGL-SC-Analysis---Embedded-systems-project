@@ -125,6 +125,13 @@ private:
     glm::vec2 left_input;
     glm::vec2 right_input;
 
+    // Projection varibales
+    float fov = 45.f;
+    float near_plane = 0.1f;
+    float far_plane = 100.f;
+    int width;
+    int height;
+
     glm::mat4 projection;
 
     float mix_val = 0.2;
