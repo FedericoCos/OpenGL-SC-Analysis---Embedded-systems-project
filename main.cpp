@@ -62,6 +62,8 @@ int Engine::init(){
     init_shaders();
     init_buffers();
 
+    tracker.init();
+
     eglSwapInterval(eglDisplay, 0);
 
     return 0;
@@ -118,26 +120,24 @@ void Engine::render_loop(){
     viewLoc = glGetUniformLocation(program, "view");
     projectionLoc = glGetUniformLocation(program, "projection");
     timeLoc = glGetUniformLocation(program, "time");
-
-    int frames = 0;
-    Uint32 lastTime = SDL_GetTicks();
     
+
+
     while(running){
-        Uint32 currentTime = SDL_GetTicks();
-        frames++;
-        if (currentTime - lastTime >= 1000) {
-            std::cout << "FPS: " << frames << std::endl;
-            frames = 0;
-            lastTime = currentTime;
-        }
+        tracker.beginFrame();
+
         float temp = (float)SDL_GetTicks() / 1000.f;
         dtime = temp - last;
         last = temp;
+
         process_input();
 
         draw();
 
         eglSwapBuffers(eglDisplay, eglSurface);
+
+        tracker.endFrame();
+        tracker.printStats();
     }
     
     // Cleanup
@@ -227,8 +227,12 @@ void Engine::draw(){
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(trans[i]));
 
             // Draw the cube
+            tracker.countDrawCall();
+            tracker.countTrinagles(36);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, 0);
         }
+
+        tracker.markCpuRenderEnd();
 }
 
 

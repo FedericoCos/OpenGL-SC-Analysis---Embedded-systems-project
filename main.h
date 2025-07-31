@@ -21,6 +21,7 @@
 
 #include "shader.h"
 #include "camera.h"
+#include "perfTracker.h"
 
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
@@ -144,6 +145,8 @@ private:
     GLint viewLoc;
     GLint projectionLoc;
     GLint timeLoc;
+
+    PerfTracker tracker;
 
 
     // ----------------- FUNCTIONS
