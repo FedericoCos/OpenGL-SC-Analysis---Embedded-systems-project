@@ -21,6 +21,8 @@
 #include <iostream>
 #include <vector>
 
+#include "perfTracker.h"
+
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
 
@@ -38,6 +40,7 @@ private:
     GLFWwindow * window;
     float past_time = 0;
     float dtime;
+    PerfTracker tracker;
 
     // buffers for shaders
     unsigned int VBO[NUM];

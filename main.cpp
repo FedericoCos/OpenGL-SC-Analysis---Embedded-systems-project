@@ -63,6 +63,8 @@ int Engine::init(){
     glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
     cam = new Camera(pos, tar, 30.0f, 2.5f);
 
+    tracker.init();
+
     // To disable vsync
     glfwSwapInterval(0);
 
@@ -195,15 +197,17 @@ void Engine::render_loop(){
     projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
 
     // ImGui
-    IMGUI_CHECKVERSION();
+    /* IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    ImGui_ImplOpenGL3_Init("#version 330"); */
 
     while(!glfwWindowShouldClose(window))
     {   
+        tracker.beginFrame();
+
         float t = (float)glfwGetTime();
         dtime = t - past_time;
         past_time = t;
@@ -213,13 +217,13 @@ void Engine::render_loop(){
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        ImGui_ImplOpenGL3_NewFrame();
+        /* ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		ImGui::NewFrame(); */
 
         draw();
 
-        ImGui::Begin("STATS");
+        /* ImGui::Begin("STATS");
         ImGui::Text("FPS: %.1f", 1.0f / dtime);
         ImGui::End();
         
@@ -256,10 +260,15 @@ void Engine::render_loop(){
         ImGui::End();
 
         ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); */
+
+        tracker.markCpuRenderEnd();
 
         glfwSwapBuffers(window);
         glfwPollEvents(); 
+
+        tracker.endFrame();
+        tracker.printStats();
     }
 
     // Deletes all ImGUI instances
@@ -310,6 +319,8 @@ void Engine::draw(){
     glBufferSubData(GL_ARRAY_BUFFER, 0, cubes_tot * sizeof(glm::mat4), trans.data());
 
     // One draw call only
+    tracker.countDrawCall();
+    tracker.countTrinagles(36 * cubes_tot);
     glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, cubes_tot);
     glBindVertexArray(0);
 
