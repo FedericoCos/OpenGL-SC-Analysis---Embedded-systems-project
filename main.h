@@ -16,6 +16,7 @@
 
 
 #include <iostream>
+#include <vector>
 #include <cmath>
 
 #include "shader.h"
@@ -23,16 +24,17 @@
 
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
+#define CUBES 1000000
 
 class Engine{
 public:
-
     int init();
     void render_loop();
 
 private:
     SDL_Window* window;
     bool fullscreen = false;
+    float dtime, last;
 
     EGLDisplay eglDisplay;
     EGLSurface eglSurface;
@@ -41,6 +43,8 @@ private:
     SDL_Event event; // for input handling
 
     Camera cam;
+    glm::vec2 right_input;
+    glm::vec2 left_input;
 
     float vertices[24] = {
         -1.0f, -1.0f, -1.0f,
@@ -73,17 +77,25 @@ private:
         3, 0, 1, 3, 1, 2
     };
 
+    int cubes = 1000;
+    std::vector<glm::vec3> tr;
+    std::vector<glm::vec3> sc;
+    std::vector<glm::vec3> rot;
+    std::vector<glm::mat4> trans;
+
     const char* vertexShaderSource = R"(
         #version 100
         attribute vec4 vPosition;
         attribute vec4 vColor;
 
-        uniform mat4 u_mvpMatrix;
+        uniform mat4 model;
+        uniform mat4 view;
+        uniform mat4 projection;
 
         varying vec4 fragColor;
 
         void main() {
-            gl_Position = u_mvpMatrix * vPosition;
+            gl_Position = projection*view*model * vPosition;
             fragColor = vColor;
         }
     )";
@@ -102,8 +114,8 @@ private:
     GLuint vbo, cbo, ibo;
 
 
-
-
+    // ----------------- FUNCTIONS
     void process_input();
+
 
 };
