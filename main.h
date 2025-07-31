@@ -91,15 +91,33 @@ private:
         #version 100
         attribute vec4 vPosition;
         attribute vec4 vColor;
+        uniform vec3 rotAxis;
 
         uniform mat4 model;
         uniform mat4 view;
         uniform mat4 projection;
 
+        uniform float time;
+
         varying vec4 fragColor;
 
+
+        mat4 rotationMatrix(float angle, vec3 axis) {
+            float s = sin(angle);
+            float c = cos(angle);
+            float oc = 1.0 - c;
+
+            return mat4(
+                oc * axis.x * axis.x + c,          oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                oc * axis.x * axis.y + axis.z * s, oc * axis.y * axis.y + c,          oc * axis.y * axis.z - axis.x * s,  0.0,
+                oc * axis.z * axis.x - axis.y * s, oc * axis.y * axis.z + axis.x * s, oc * axis.z * axis.z + c,           0.0,
+                0.0,                                0.0,                                0.0,                                1.0
+            );
+        }
+
         void main() {
-            gl_Position = projection*view*model * vPosition;
+            mat4 rotation = rotationMatrix(time, rotAxis);
+            gl_Position = projection*view*model*rotation * vPosition;
             fragColor = vColor;
         }
     )";
@@ -115,13 +133,15 @@ private:
         }
     )";
 
-    GLuint vbo, cbo, ibo;
+    GLuint vbo, cbo, ibo, rbo; // Various buffers
     GLuint program;
     GLint posLoc;
     GLint colorLoc;
+    GLint rotAxLoc;
     GLint modelLoc;
     GLint viewLoc;
     GLint projectionLoc;
+    GLint timeLoc;
 
 
     // ----------------- FUNCTIONS

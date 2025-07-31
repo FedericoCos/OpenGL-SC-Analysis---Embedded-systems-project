@@ -56,13 +56,11 @@ int Engine::init(){
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    init_buffers();
-
-    init_shaders();
-
+    init_cubes();
     init_camera();
 
-    init_cubes();
+    init_shaders();
+    init_buffers();
 
     eglSwapInterval(eglDisplay, 0);
 
@@ -77,6 +75,10 @@ void Engine::init_buffers(){
     glGenBuffers(1, &cbo);
     glBindBuffer(GL_ARRAY_BUFFER, cbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &rbo);
+    glBindBuffer(GL_ARRAY_BUFFER, rbo);
+    glBufferData(GL_ARRAY_BUFFER, CUBES * sizeof(glm::vec3), rot.data(), GL_STATIC_DRAW);
 
     glGenBuffers(1, &ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
@@ -111,9 +113,11 @@ void Engine::render_loop(){
     running = true;
     posLoc = glGetAttribLocation(program, "vPosition");
     colorLoc = glGetAttribLocation(program, "vColor");
+    rotAxLoc = glGetUniformLocation(program, "rotAxis");
     modelLoc = glGetUniformLocation(program, "model");
     viewLoc = glGetUniformLocation(program, "view");
     projectionLoc = glGetUniformLocation(program, "projection");
+    timeLoc = glGetUniformLocation(program, "time");
 
     int frames = 0;
     Uint32 lastTime = SDL_GetTicks();
@@ -201,16 +205,24 @@ void Engine::draw(){
         // Index buffer
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
+        /* glBindBuffer(GL_ARRAY_BUFFER, rbo);
+        glVertexAttribPointer(rotAxLoc, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
+        glEnableVertexAttribArray(rotAxLoc); */
+
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(cam.viewAtMat()));
         glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f)));
 
-        float r = (float)SDL_GetTicks() / 1000.f;
+        float r = (float)SDL_GetTicks() / 1000.f; // for rotation
+        glUniform1f(timeLoc, r);
+
         // --- MATRIX CALCULATIONS ---
         for (int i = 0; i < cubes; i++) {
             trans[i] = glm::mat4(1.0f);
             trans[i] = glm::scale(trans[i], sc[i]);
             trans[i] = glm::translate(trans[i], tr[i]);
-            trans[i] = glm::rotate(trans[i], r, rot[i]);
+            // trans[i] = glm::rotate(trans[i], r, rot[i]);
+
+            glUniform3fv(rotAxLoc, 1, glm::value_ptr(rot[i]));
 
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(trans[i]));
 
