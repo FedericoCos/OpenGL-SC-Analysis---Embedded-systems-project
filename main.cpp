@@ -92,7 +92,7 @@ void Engine::init_camera(){
 }
 
 void Engine::init_shaders(){
-    program = Shader::createProgram(vertexShaderSource, fragmentShaderSource);
+    program = Shader::loadOrCreateProgram("my_shader.bin", vertexShaderSource, fragmentShaderSource);
 }
 
 void Engine::init_cubes(){

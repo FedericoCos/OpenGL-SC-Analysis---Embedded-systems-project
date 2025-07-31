@@ -89,8 +89,10 @@ private:
 
     const char* vertexShaderSource = R"(
         #version 100
+
         attribute vec4 vPosition;
         attribute vec4 vColor;
+
         uniform vec3 rotAxis;
 
         uniform mat4 model;
