@@ -30,10 +30,14 @@ class Engine{
 public:
     int init();
     void render_loop();
+    void set_cubes_num(int num){
+        cubes = std::min(num, CUBES);
+    }
 
 private:
     SDL_Window* window;
     bool fullscreen = false;
+    bool running = false;
     float dtime, last;
 
     EGLDisplay eglDisplay;
@@ -112,10 +116,21 @@ private:
     )";
 
     GLuint vbo, cbo, ibo;
+    GLuint program;
+    GLint posLoc;
+    GLint colorLoc;
+    GLint modelLoc;
+    GLint viewLoc;
+    GLint projectionLoc;
 
 
     // ----------------- FUNCTIONS
     void process_input();
+    void init_buffers();
+    void init_cubes();
+    void init_camera();
+    void init_shaders();
 
+    void draw();
 
 };

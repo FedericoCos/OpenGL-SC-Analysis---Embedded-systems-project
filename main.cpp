@@ -56,6 +56,20 @@ int Engine::init(){
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
+    init_buffers();
+
+    init_shaders();
+
+    init_camera();
+
+    init_cubes();
+
+    eglSwapInterval(eglDisplay, 0);
+
+    return 0;
+}
+
+void Engine::init_buffers(){
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -67,11 +81,19 @@ int Engine::init(){
     glGenBuffers(1, &ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+}
 
+void Engine::init_camera(){
     glm::vec3 pos(0.f, 0.f, 3.f);
     glm::vec3 tar(0.f, 0.f, -1.f);
     cam = Camera(pos, tar, 30.f, 2.5f);
+}
 
+void Engine::init_shaders(){
+    program = Shader::createProgram(vertexShaderSource, fragmentShaderSource);
+}
+
+void Engine::init_cubes(){
     tr.resize(CUBES);
     sc.resize(CUBES);
     rot.resize(CUBES);
@@ -83,21 +105,15 @@ int Engine::init(){
         sc[i] = glm::vec3(std::max(rand() % 10 * 0.1f, 0.1f));
         rot[i] = glm::normalize(glm::vec3(std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f)));
     }
-
-    eglSwapInterval(eglDisplay, 0);
-
-    return 0;
 }
 
-
 void Engine::render_loop(){
-    bool running = true;
-    GLuint program = Shader::createProgram(vertexShaderSource, fragmentShaderSource);
-    GLint posLoc = glGetAttribLocation(program, "vPosition");
-    GLint colorLoc = glGetAttribLocation(program, "vColor");
-    GLint modelLoc = glGetUniformLocation(program, "model");
-    GLint viewLoc = glGetUniformLocation(program, "view");
-    GLint projectionLoc = glGetUniformLocation(program, "projection");
+    running = true;
+    posLoc = glGetAttribLocation(program, "vPosition");
+    colorLoc = glGetAttribLocation(program, "vColor");
+    modelLoc = glGetUniformLocation(program, "model");
+    viewLoc = glGetUniformLocation(program, "view");
+    projectionLoc = glGetUniformLocation(program, "projection");
 
     int frames = 0;
     Uint32 lastTime = SDL_GetTicks();
@@ -115,6 +131,57 @@ void Engine::render_loop(){
         last = temp;
         process_input();
 
+        draw();
+
+        eglSwapBuffers(eglDisplay, eglSurface);
+    }
+    
+    // Cleanup
+    eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglDestroyContext(eglDisplay, eglContext);
+    eglDestroySurface(eglDisplay, eglSurface);
+    eglTerminate(eglDisplay);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+}
+
+void Engine::process_input() {
+    // Process all SDL events first
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            running = false;
+            return;
+        }
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+            running = false;
+            return;
+        }
+    }
+
+    // Get the current keyboard state
+    const Uint8* state = SDL_GetKeyboardState(NULL);
+
+    // Reset inputs
+    right_input = {0.f, 0.f};
+    left_input  = {0.f, 0.f};
+
+    // --- Right hand (WASD) ---
+    if (state[SDL_SCANCODE_W]) right_input.x = 1.f;
+    if (state[SDL_SCANCODE_S]) right_input.x = -1.f;
+    if (state[SDL_SCANCODE_A]) right_input.y = -1.f;
+    if (state[SDL_SCANCODE_D]) right_input.y =  1.f;
+
+    // --- Left hand (Arrow keys) ---
+    if (state[SDL_SCANCODE_UP])    left_input.x = 1.f;
+    if (state[SDL_SCANCODE_DOWN])  left_input.x = -1.f;
+    if (state[SDL_SCANCODE_LEFT])  left_input.y = -1.f;
+    if (state[SDL_SCANCODE_RIGHT]) left_input.y =  1.f;
+
+    // Update camera or game logic with smoothed input
+    cam.update(right_input, left_input, dtime);
+}
+
+void Engine::draw(){
         glClearColor(0.2f, 0.4f, 0.6f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
@@ -150,57 +217,14 @@ void Engine::render_loop(){
             // Draw the cube
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, 0);
         }
-
-        eglSwapBuffers(eglDisplay, eglSurface);
-    }
-    
-    // Cleanup
-    eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    eglDestroyContext(eglDisplay, eglContext);
-    eglDestroySurface(eglDisplay, eglSurface);
-    eglTerminate(eglDisplay);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-}
-
-void Engine::process_input() {
-    // Process all SDL events first
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) {
-            exit(0);
-        }
-        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-            exit(0);
-        }
-    }
-
-    // Get the current keyboard state
-    const Uint8* state = SDL_GetKeyboardState(NULL);
-
-    // Reset inputs
-    right_input = {0.f, 0.f};
-    left_input  = {0.f, 0.f};
-
-    // --- Right hand (WASD) ---
-    if (state[SDL_SCANCODE_W]) right_input.x = 1.f;
-    if (state[SDL_SCANCODE_S]) right_input.x = -1.f;
-    if (state[SDL_SCANCODE_A]) right_input.y = -1.f;
-    if (state[SDL_SCANCODE_D]) right_input.y =  1.f;
-
-    // --- Left hand (Arrow keys) ---
-    if (state[SDL_SCANCODE_UP])    left_input.x = 1.f;
-    if (state[SDL_SCANCODE_DOWN])  left_input.x = -1.f;
-    if (state[SDL_SCANCODE_LEFT])  left_input.y = -1.f;
-    if (state[SDL_SCANCODE_RIGHT]) left_input.y =  1.f;
-
-    // Update camera or game logic with smoothed input
-    cam.update(right_input, left_input, dtime);
 }
 
 
 
-int main(){
+int main(int argc, char * argv[]){
     Engine engine;
+    if(argc > 1)
+        engine.set_cubes_num(std::stoi(argv[1]));
 
     if(engine.init()){
         return -1;
