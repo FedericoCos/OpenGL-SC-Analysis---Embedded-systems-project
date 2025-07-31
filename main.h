@@ -10,10 +10,16 @@
 #include <SDL2/SDL_syswm.h>
 
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
 #include <iostream>
 #include <cmath>
 
 #include "shader.h"
+#include "camera.h"
 
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
@@ -32,7 +38,9 @@ private:
     EGLSurface eglSurface;
     EGLContext eglContext;
 
-    float mCubeRotation = 0.0f;
+    SDL_Event event; // for input handling
+
+    Camera cam;
 
     float vertices[24] = {
         -1.0f, -1.0f, -1.0f,
@@ -65,75 +73,26 @@ private:
         3, 0, 1, 3, 1, 2
     };
 
-
-
-    // TO MOVE AWAY OR DELETE
-    void matrixIdentity(float* m) {
-        for(int i=0; i<16; i++) m[i] = (i%5==0) ? 1.0f : 0.0f;
-    }
-
-    void matrixMultiply(float* dst, const float* a, const float* b) {
-        float temp[16];
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                temp[i * 4 + j] = a[i * 4 + 0] * b[0 * 4 + j] +
-                                a[i * 4 + 1] * b[1 * 4 + j] +
-                                a[i * 4 + 2] * b[2 * 4 + j] +
-                                a[i * 4 + 3] * b[3 * 4 + j];
-            }
-        }
-        for(int i=0; i<16; i++) dst[i] = temp[i];
-    }
-
-    void matrixRotateX(float* m, float angle) {
-        float rad = angle * M_PI / 180.0f;
-        float s = sin(rad), c = cos(rad);
-        matrixIdentity(m);
-        m[5] = c; m[6] = s;
-        m[9] = -s; m[10] = c;
-    }
-
-    void matrixRotateY(float* m, float angle) {
-        float rad = angle * M_PI / 180.0f;
-        float s = sin(rad), c = cos(rad);
-        matrixIdentity(m);
-        m[0] = c; m[2] = -s;
-        m[8] = s; m[10] = c;
-    }
-
-    void matrixTranslate(float* m, float x, float y, float z) {
-        matrixIdentity(m);
-        m[12] = x; m[13] = y; m[14] = z;
-    }
-
-    void matrixPerspective(float* m, float fovY, float aspect, float zNear, float zFar) {
-        matrixIdentity(m);
-        float f = 1.0f / tan(fovY * (M_PI / 360.0f));
-        m[0] = f / aspect;
-        m[5] = f;
-        m[10] = (zFar + zNear) / (zNear - zFar);
-        m[11] = -1.0f;
-        m[14] = (2.0f * zFar * zNear) / (zNear - zFar);
-        m[15] = 0.0f;
-    }
-
     const char* vertexShaderSource = R"(
-        layout (location = 0) in vec3 vPosition
-        layout (location = 1) in vec3 vColor;
-        uniform mat4 u_mvpMatrix;
-        out vec3 ourColor;
+        #version 100
+        attribute vec4 vPosition;
+        attribute vec4 vColor;
 
+        uniform mat4 u_mvpMatrix;
+
+        varying vec4 fragColor;
 
         void main() {
             gl_Position = u_mvpMatrix * vPosition;
-            ourColor = vColor;
+            fragColor = vColor;
         }
     )";
 
     const char* fragmentShaderSource = R"(
+        #version 100
         precision mediump float;
-        out vec4 FragColor;  
-        in vec3 ourColor;
+        
+        varying vec4 fragColor;
 
         void main() {
             gl_FragColor = fragColor;
@@ -141,5 +100,10 @@ private:
     )";
 
     GLuint vbo, cbo, ibo;
+
+
+
+
+    void process_input();
 
 };

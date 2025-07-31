@@ -15,6 +15,10 @@ public:
     float vel;
     float rot_speed;
 
+    Camera(){
+        
+    }
+
     Camera(glm::vec3 &pos, glm::vec3 &tar, float speed, float rot){
         position = pos;
         front = tar;

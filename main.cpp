@@ -59,18 +59,18 @@ int Engine::init(){
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(0);
 
     glGenBuffers(1, &cbo);
     glBindBuffer(GL_ARRAY_BUFFER, cbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(1);
 
     glGenBuffers(1, &ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glm::vec3 pos(0.f, 0.f, 3.f);
+    glm::vec3 tar(0.f, 0.f, -1.f);
+    cam = Camera(pos, tar, 30.f, 2.5f);
 
     return 0;
 }
@@ -82,8 +82,6 @@ void Engine::render_loop(){
     GLint posLoc = glGetAttribLocation(program, "vPosition");
     GLint colorLoc = glGetAttribLocation(program, "vColor");
     GLint mvpLoc = glGetUniformLocation(program, "u_mvpMatrix");
-
-    glUseProgram(program);
     
     while(running){
         SDL_Event event;
@@ -94,35 +92,22 @@ void Engine::render_loop(){
         }
 
         glClearColor(0.2f, 0.4f, 0.6f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-
-        mCubeRotation += 1.0f; // Increment rotation angle
-        if (mCubeRotation > 360.0f) mCubeRotation -= 360.0f;
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUseProgram(program);
 
         // --- MATRIX CALCULATIONS ---
-        float projMatrix[16], viewMatrix[16], modelMatrix[16];
-        float rotXMatrix[16], rotYMatrix[16];
-        float mvpMatrix[16], tempMatrix[16];
+        glm::mat4 mat(1.f);
+        mat = glm::translate(mat, glm::vec3(0.f, 0.f, -5.f));
+        mat = glm::rotate(mat, (float)SDL_GetTicks() / 1000.f, glm::vec3(1.f, 0.f, 1.f));
+         mat = cam.viewAtMat() * mat;
+        mat = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f) * mat;
+        
 
-        matrixPerspective(projMatrix, 60.0f, 800.0f/600.0f, 1.0f, 20.0f);
-        matrixTranslate(viewMatrix, 0.0f, 0.0f, -5.0f);
-
-        matrixRotateX(rotXMatrix, mCubeRotation);
-        matrixRotateY(rotYMatrix, mCubeRotation);
-        matrixMultiply(modelMatrix, rotYMatrix, rotXMatrix); // Combine rotations
-
-        // Create MVP matrix: Projection * View * Model
-        matrixMultiply(tempMatrix, viewMatrix, modelMatrix);
-        matrixMultiply(mvpMatrix, projMatrix, tempMatrix);
-
-        glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, mvpMatrix);
+        glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mat));
 
         // --- RENDER ---
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        /* // Position attribute
+        // Position attribute
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(posLoc);
@@ -133,9 +118,7 @@ void Engine::render_loop(){
         glEnableVertexAttribArray(colorLoc);
         
         // Index buffer
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo); */
-
-        glUniformMatrix4fv(glGetUniformLocation(program, "u_mvpMatrix"), 1, GL_FALSE, mvpMatrix);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
         // Draw the cube
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, 0);
