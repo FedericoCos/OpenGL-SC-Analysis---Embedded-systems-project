@@ -43,9 +43,6 @@ private:
     PerfTracker tracker;
     bool is_imgui = true;
 
-    // buffers for shaders
-    unsigned int VBO[NUM];
-
     float cube[192] = {
     // Front face (z = 0)
     0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 0 top right
@@ -135,13 +132,16 @@ private:
     int height;
 
     glm::mat4 projection;
-
-    float mix_val = 0.2;
-
     Shader shader;
+    Shader light_shader;
 
     // texture placeholder
     unsigned int texture[2];
+
+
+    // Lights variables
+    unsigned int lightVAO;
+    int num_lights;
 
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     void process_input();
@@ -149,5 +149,8 @@ private:
     void init_shaders();
     void init_VAO();
     void init_textures();
+
+
     void draw();
+    void draw_imgui();
 };

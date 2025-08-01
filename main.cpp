@@ -47,6 +47,7 @@ int Engine::init(int cubes, bool imgui, bool save){
     trans.resize(CUBES);
 
     cubes_tot = cubes;
+    num_lights = 10;
 
     // Random variables for cubes
     for(int i = 0; i < CUBES; i++){
@@ -114,6 +115,7 @@ void Engine::init_VAO(){
     // Genrating VAO
     // glGenVertexArrays(NUM, VAO);
     glGenVertexArrays(1, &cVAO);
+    glGenVertexArrays(1, &lightVAO);
 }
 
 void Engine::init_buffers(){
@@ -128,16 +130,24 @@ void Engine::init_buffers(){
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // color attribute
+    /* // color attribute
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
     glEnableVertexAttribArray(1); 
     // texture attribute
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6* sizeof(float)));
-    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(2); */
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
     tracker.trackVramAllocation(sizeof(cube_indices));
+
+
+
+    glBindVertexArray(lightVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, cVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
 
     glBindVertexArray(0);
 
@@ -145,6 +155,7 @@ void Engine::init_buffers(){
 
 void Engine::init_shaders(){
     shader = Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
+    light_shader = Shader("shaders/vertex.glsl", "shaders/fragment_light.glsl");
 }
 
 void Engine::init_textures(){
@@ -208,48 +219,7 @@ void Engine::render_loop(){
         draw();
 
         if(is_imgui){
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
-            ImGui::Begin("STATS");
-            ImGui::Text("FPS: %.1f", 1.0f / dtime);
-            ImGui::End();
-            
-            ImGui::Begin("CUBES");
-            ImGui::InputInt("Num Cubes", &cubes_tot);
-            cubes_tot = std::min(CUBES, cubes_tot);
-            ImGui::InputFloat("Spread fact", &spread);
-            ImGui::InputFloat("Rot Speed", &rot_speed);
-            ImGui::End();
-
-            ImGui::Begin("CAMERA");
-            int w = width, h = height;
-            float np = near_plane, fp = far_plane, f = fov;
-            ImGui::InputFloat("FOV", &f);
-            ImGui::InputFloat("Near Plane", &np);
-            ImGui::InputFloat("Far Plane", &fp);
-            glfwGetWindowSize(window, &w, &h);
-            if(
-                w != width ||
-                h != height ||
-                np != near_plane ||
-                fp != far_plane ||
-                f != fov
-            ){
-                width = w;
-                height = h;
-                near_plane = np;
-                far_plane = fp;
-                fov = f;
-                projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
-            }
-
-
-            ImGui::End();
-
-            ImGui::Render();
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            draw_imgui();
         }
 
         glfwSwapBuffers(window);
@@ -280,15 +250,22 @@ void Engine::draw(){
     shader.use();
     tracker.countShaderBind();
     glBindVertexArray(cVAO);
-    glUniform1i(glGetUniformLocation(shader.ID, "texture1"), 0);
+
+
+    /* glUniform1i(glGetUniformLocation(shader.ID, "texture1"), 0);
     shader.setInt("texture2", 1);
-    shader.setFloat("mix_val", mix_val);
+    shader.setFloat("mix_val", mix_val); */
 
     glm::mat4 view = cam -> viewAtMat();
     shader.setMatrix("view", view);
     shader.setMatrix("projection", projection);
 
-    shader.setFloat("time", (float)glfwGetTime());
+    glm::vec3 objColor(1.f, .5f, .31f);
+    glm::vec3 lightColor(1.f, 1.f, 1.f);
+    shader.setVector3("objectColor", objColor);
+    shader.setVector3("lightColor", lightColor);
+
+    /* shader.setFloat("time", (float)glfwGetTime());
     shader.setFloat("rotSpeed", rot_speed);
     
     // bind textures
@@ -299,15 +276,37 @@ void Engine::draw(){
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, texture[1]);
     tracker.countTextureBind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); */
 
-    for (int i = 0; i < cubes_tot; i++) {
+    int i;
+    for (i = 0; i < (cubes_tot - num_lights); i++) {
         trans[i] = glm::mat4(1.0f);
         trans[i] = glm::scale(trans[i], sc[i]);
         trans[i] = glm::translate(trans[i], spread * tr[i]);
+        trans[i] = glm::rotate(trans[i], (float)glfwGetTime(), rot[i]);
 
         shader.setMatrix("model", trans[i]);
-        shader.setVector3("rotAxis", rot[i]);
+
+        tracker.countDrawCall();
+        tracker.countTriangles(12 * cubes_tot);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        
+    }
+
+
+    light_shader.use();
+    tracker.countShaderBind();
+    glBindVertexArray(lightVAO);
+    light_shader.setMatrix("view", view);
+    light_shader.setMatrix("projection", projection);
+
+    for (i; i < cubes_tot; i++) {
+        trans[i] = glm::mat4(1.0f);
+        trans[i] = glm::scale(trans[i], sc[i]);
+        trans[i] = glm::translate(trans[i], spread * tr[i]);
+        trans[i] = glm::rotate(trans[i], (float)glfwGetTime(), rot[i]);
+
+        light_shader.setMatrix("model", trans[i]);
 
         tracker.countDrawCall();
         tracker.countTriangles(12 * cubes_tot);
@@ -319,6 +318,53 @@ void Engine::draw(){
 
     tracker.endCpuRender();
 
+}
+
+void Engine::draw_imgui(){
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::Begin("STATS");
+    ImGui::Text("FPS: %.1f", 1.0f / dtime);
+    ImGui::End();
+    
+    ImGui::Begin("CUBES");
+    ImGui::InputInt("Num Cubes", &cubes_tot);
+    cubes_tot = std::min(CUBES, cubes_tot);
+    ImGui::InputInt("Num Lights", &num_lights);
+    num_lights = std::min(num_lights, cubes_tot);
+    ImGui::InputFloat("Spread fact", &spread);
+    ImGui::InputFloat("Rot Speed", &rot_speed);
+    ImGui::End();
+
+    ImGui::Begin("CAMERA");
+    int w = width, h = height;
+    float np = near_plane, fp = far_plane, f = fov;
+    ImGui::InputFloat("FOV", &f);
+    ImGui::InputFloat("Near Plane", &np);
+    ImGui::InputFloat("Far Plane", &fp);
+    glfwGetWindowSize(window, &w, &h);
+    if(
+        w != width ||
+        h != height ||
+        np != near_plane ||
+        fp != far_plane ||
+        f != fov
+    ){
+        width = w;
+        height = h;
+        near_plane = np;
+        far_plane = fp;
+        fov = f;
+        projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
+    }
+
+
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 
