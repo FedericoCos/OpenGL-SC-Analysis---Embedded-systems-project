@@ -4,8 +4,9 @@
 #include <chrono>
 #include <vector>
 #include <algorithm>
-#include <numeric>   // For std::accumulate
-#include <iomanip>   // For std::fixed, std::setprecision
+#include <numeric>   
+#include <iomanip> 
+#include <fstream>  
 
 class PerfTracker {
 public:
@@ -31,15 +32,30 @@ public:
     long long totalVramAllocated = 0;
     long long dataUploadedThisFrame = 0;
 
+    // CSV
+    std::ofstream csvFile;
+    bool csvEnabled = false;
+
 private:
     // For FPS smoothing
     std::vector<double> frameHistory;
     size_t historySize = 100;
 
 public:
-    void init(size_t history = 100) {
+    void init(size_t history = 100, const std::string &csvPath = "stats.csv") {
         historySize = history;
         frameHistory.resize(historySize, 0.0);
+
+        if(!csvPath.empty()){
+            csvFile.open(csvPath, std::ios::out);
+            if (csvFile.is_open()) {
+                csvEnabled = true;
+                csvFile << "FPS,FrameTime(ms),MinFrame(ms),MaxFrame(ms),AvgFrame(ms),CPUTime(ms),GPUWait(ms),DrawCalls,Triangles,VRAM(MB),Upload(KB),\n";
+            } else {
+                std::cerr << "[PerfTracker] Failed to open CSV file: " << csvPath << "\n";
+            }
+
+        }
     }
 
     void beginFrame() {
@@ -77,6 +93,21 @@ public:
 
         minFrame = std::min(minFrame, frameTime);
         maxFrame = std::max(maxFrame, frameTime);
+
+        if (csvEnabled) {
+            csvFile << fps << ","
+                    << frameTime << ","
+                    << minFrame << ","
+                    << maxFrame << ","
+                    << avgFrame << ","
+                    << cpuRenderTime << ","
+                    << gpuWaitTime << ","
+                    << drawCalls << ","
+                    << trisThisFrame << ","
+                    << totalVramAllocated / (1024.0 * 1024.0) << ","
+                    << dataUploadedThisFrame / 1024.0 << ","
+                    << "\n";
+        }
     }
 
     // --- Counter Methods ---
@@ -97,8 +128,8 @@ public:
 
         std::cout << std::fixed << std::setprecision(4)
               << "FPS: " << fps
-              << " | Frame: " << avgFrame << "ms"
-              << " (Min: " << minFrame << "ms, Max: " << maxFrame << "ms)"
+              << " | Frame: " << frameTime << "ms"
+              << " (Min: " << minFrame << "ms, Max: " << maxFrame << "ms, Avg: " << avgFrame << "ms)" 
               << " | CPU: " << cpuRenderTime << "ms"
               << " | GPU Wait: " << gpuWaitTime << "ms"
               << " | Calls: " << drawCalls
