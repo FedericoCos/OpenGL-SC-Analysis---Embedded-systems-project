@@ -14,6 +14,8 @@ def plot_statistics(csv_path: str, save_plots: bool = False):
     except pd.errors.EmptyDataError:
         print(f"Error: The file '{csv_path}' is empty.", file=sys.stderr)
         sys.exit(1)
+    
+    df = df[:10000]
 
     frame_axis = df.index
 
