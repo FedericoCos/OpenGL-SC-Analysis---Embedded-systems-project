@@ -123,6 +123,8 @@ private:
     std::vector<glm::vec3> rot;
     std::vector<glm::mat4> trans;
 
+    glm::mat4 projection;
+
     unsigned int texture[2];
 
     const char* vertexShaderSource = R"(
