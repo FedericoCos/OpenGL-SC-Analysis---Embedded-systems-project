@@ -9,6 +9,9 @@
 #include <SDL2/SDL.h> // For Events
 #include <SDL2/SDL_syswm.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -51,36 +54,68 @@ private:
     glm::vec2 right_input;
     glm::vec2 left_input;
 
-    float vertices[24] = {
-        -1.0f, -1.0f, -1.0f,
-        1.0f, -1.0f, -1.0f,
-        1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-        1.0f, -1.0f,  1.0f,
-        1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f
-    };
+    float cube[192] = {
+        // Front face (z = 0)
+        0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 0 top right
+        0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 0.f, // 1 bottom right
+    -0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, // 2 bottom left
+    -0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 1.f, // 3 top left
 
-    float colors[32] = {
-        0.0f,  1.0f,  0.0f,  1.0f,
-        0.0f,  1.0f,  0.0f,  1.0f,
-        1.0f,  0.5f,  0.0f,  1.0f,
-        1.0f,  0.5f,  0.0f,  1.0f,
-        1.0f,  0.0f,  0.0f,  1.0f,
-        1.0f,  0.0f,  0.0f,  1.0f,
-        0.0f,  0.0f,  1.0f,  1.0f,
-        1.0f,  0.0f,  1.0f,  1.0f
-    };
+        // Back face (z = 1)
+        0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 1.f, // 4 top right
+        0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 0.f, // 5 bottom right
+    -0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 0.f, // 6 bottom left
+    -0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 7 top left
 
-    GLubyte indices[36] = {
-        0, 4, 5, 0, 5, 1,
-        1, 5, 6, 1, 6, 2,
-        2, 6, 7, 2, 7, 3,
-        3, 7, 4, 3, 4, 0,
-        4, 7, 6, 4, 6, 5,
-        3, 0, 1, 3, 1, 2
+        // Left face (x = -0.5)
+    -0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 8 top right
+    -0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 0.f, // 9 bottom right
+    -0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //10 bottom left
+    -0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //11 top left
+
+        // Right face (x = 0.5)
+        0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //12 top left
+        0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //13 bottom left
+        0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 0.f, //14 bottom right
+        0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, //15 top right
+
+        // Top face (y = 0.5)
+        0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, //16 top right
+        0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 0.f, //17 bottom right
+    -0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //18 bottom left
+    -0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //19 top left
+
+        // Bottom face (y = -0.5)
+        0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 0.f, //20 bottom right
+        0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, //21 top right
+    -0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //22 top left
+    -0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //23 bottom left
     };
+    GLubyte cube_indices[36] = {
+    // Front face
+    0, 1, 2,
+    2, 3, 0,
+
+    // Back face
+    4, 5, 6,
+    6, 7, 4,
+
+    // Left face
+    8, 9,10,
+    10,11,8,
+
+    // Right face
+    12,13,14,
+    14,15,12,
+
+    // Top face
+    16,17,18,
+    18,19,16,
+
+    // Bottom face
+    20,21,22,
+    22,23,20
+};
 
     int cubes = 1000;
     std::vector<glm::vec3> tr;
@@ -88,11 +123,14 @@ private:
     std::vector<glm::vec3> rot;
     std::vector<glm::mat4> trans;
 
+    unsigned int texture[2];
+
     const char* vertexShaderSource = R"(
         #version 100
 
         attribute vec4 vPosition;
         attribute vec4 vColor;
+        attribute vec2 vTex;
 
         uniform vec3 rotAxis;
 
@@ -103,6 +141,7 @@ private:
         uniform float time;
 
         varying vec4 fragColor;
+        varying vec2 textCoord;
 
 
         mat4 rotationMatrix(float angle, vec3 axis) {
@@ -122,6 +161,7 @@ private:
             mat4 rotation = rotationMatrix(time, rotAxis);
             gl_Position = projection*view*model*rotation * vPosition;
             fragColor = vColor;
+            textCoord = vTex;
         }
     )";
 
@@ -130,21 +170,30 @@ private:
         precision mediump float;
         
         varying vec4 fragColor;
+        varying vec2 textCoord;
+
+        uniform sampler2D texture1;
+        uniform sampler2D texture2;
 
         void main() {
-            gl_FragColor = fragColor;
+            gl_FragColor = mix(texture2D(texture1, textCoord),
+                   texture2D(texture2, textCoord),
+                   0.2); 
         }
     )";
 
-    GLuint vbo, cbo, ibo, rbo; // Various buffers
+    GLuint vbo, cbo, ibo, rbo, tbo; // Various buffers
     GLuint program;
     GLint posLoc;
     GLint colorLoc;
+    GLint textureLoc;
     GLint rotAxLoc;
     GLint modelLoc;
     GLint viewLoc;
     GLint projectionLoc;
     GLint timeLoc;
+    GLint text1Loc;
+    GLint text2Loc;
 
     PerfTracker tracker;
 
@@ -155,7 +204,7 @@ private:
     void init_cubes();
     void init_camera();
     void init_shaders();
+    void init_textures();
 
     void draw();
-
 };

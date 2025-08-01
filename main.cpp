@@ -62,6 +62,8 @@ int Engine::init(){
     init_shaders();
     init_buffers();
 
+    init_textures();
+
     tracker.init();
 
     eglSwapInterval(eglDisplay, 0);
@@ -72,11 +74,11 @@ int Engine::init(){
 void Engine::init_buffers(){
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &cbo);
+    /* glGenBuffers(1, &cbo);
     glBindBuffer(GL_ARRAY_BUFFER, cbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW); */
 
     glGenBuffers(1, &rbo);
     glBindBuffer(GL_ARRAY_BUFFER, rbo);
@@ -84,7 +86,11 @@ void Engine::init_buffers(){
 
     glGenBuffers(1, &ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+
+    /* glGenBuffers(1, &tbo);
+    glBindBuffer(GL_ARRAY_BUFFER, tbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(uvs), uvs, GL_STATIC_DRAW); */
 }
 
 void Engine::init_camera(){
@@ -111,6 +117,30 @@ void Engine::init_cubes(){
     }
 }
 
+void Engine::init_textures(){
+    stbi_set_flip_vertically_on_load(true);
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load("textures/wall.jpg", &width, &height, &nrChannels, 0);
+    if(!data){
+        std::cout << "Failed to load texture" << std::endl;
+        exit(0);
+    }
+
+    glGenTextures(2, texture);
+    glBindTexture(GL_TEXTURE_2D, texture[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    stbi_image_free(data);
+
+    glBindTexture(GL_TEXTURE_2D, texture[1]);
+    data = stbi_load("textures/awesomeface.png", &width, &height, &nrChannels, 0);
+    if(data){
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+}
+
 void Engine::render_loop(){
     running = true;
     posLoc = glGetAttribLocation(program, "vPosition");
@@ -120,6 +150,9 @@ void Engine::render_loop(){
     viewLoc = glGetUniformLocation(program, "view");
     projectionLoc = glGetUniformLocation(program, "projection");
     timeLoc = glGetUniformLocation(program, "time");
+    textureLoc = glGetAttribLocation(program, "vTex");
+    text1Loc = glGetUniformLocation(program, "texture1");
+    text2Loc = glGetUniformLocation(program, "texture2");
     
 
 
@@ -194,23 +227,40 @@ void Engine::draw(){
 
         // Position attribute
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void *)0);
         glEnableVertexAttribArray(posLoc);
 
         // Color attribute
-        glBindBuffer(GL_ARRAY_BUFFER, cbo);
-        glVertexAttribPointer(colorLoc, 4, GL_FLOAT, GL_FALSE, 0, 0);
+        // glBindBuffer(GL_ARRAY_BUFFER, cbo);
+        glVertexAttribPointer(colorLoc, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3*sizeof(float)));
         glEnableVertexAttribArray(colorLoc);
+
+        // Texture attribute
+        // glBindBuffer(GL_ARRAY_BUFFER, tbo);
+        glVertexAttribPointer(textureLoc, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
+        glEnableVertexAttribArray(textureLoc);
         
         // Index buffer
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
-        /* glBindBuffer(GL_ARRAY_BUFFER, rbo);
+        glBindBuffer(GL_ARRAY_BUFFER, rbo);
         glVertexAttribPointer(rotAxLoc, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), 0);
-        glEnableVertexAttribArray(rotAxLoc); */
+        glEnableVertexAttribArray(rotAxLoc);
 
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(cam.viewAtMat()));
         glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f)));
+
+        // Texture binding
+        glUniform1i(text1Loc, 0);
+        glUniform1i(text2Loc, 1);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture[0]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture[1]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
 
         float r = (float)SDL_GetTicks() / 1000.f; // for rotation
         glUniform1f(timeLoc, r);
