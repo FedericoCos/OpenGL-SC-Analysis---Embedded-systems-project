@@ -38,6 +38,7 @@ int Engine::init(){
 
 
     stbi_set_flip_vertically_on_load(true);
+    tracker.init();
 
     tr.resize(CUBES);
     sc.resize(CUBES);
@@ -62,8 +63,6 @@ int Engine::init(){
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 3.0f);
     glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
     cam = new Camera(pos, tar, 30.0f, 2.5f);
-
-    tracker.init();
 
     // To disable vsync
     glfwSwapInterval(0);
@@ -124,9 +123,11 @@ void Engine::init_buffers(){
 
     glBindBuffer(GL_ARRAY_BUFFER, cVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW); // copies vertices on the GPU (buffer memory)
+    tracker.trackVramAllocation(sizeof(cube));
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+    tracker.trackVramAllocation(sizeof(cube_indices));
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -175,6 +176,8 @@ void Engine::init_textures(){
 
     glGenTextures(2, texture);
     glBindTexture(GL_TEXTURE_2D, texture[0]);
+    tracker.countTextureBind();
+    tracker.trackVramAllocation(width * height * 3);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -182,10 +185,12 @@ void Engine::init_textures(){
     
 
     glBindTexture(GL_TEXTURE_2D, texture[1]);
+    tracker.countTextureBind();
     data = stbi_load("textures/awesomeface.png", &width, &height, &nrChannels, 0);
     if (data)
     {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        tracker.trackVramAllocation(width * height * 3);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
 }
@@ -262,8 +267,6 @@ void Engine::render_loop(){
         ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); */
 
-        tracker.markCpuRenderEnd();
-
         glfwSwapBuffers(window);
         glfwPollEvents(); 
 
@@ -285,7 +288,10 @@ void Engine::render_loop(){
 }
 
 void Engine::draw(){
+    tracker.beginCpuRender();
+
     shaders[0] -> use();
+    tracker.countShaderBind();
     glBindVertexArray(cVAO);
     glUniform1i(glGetUniformLocation(shaders[0]->ID, "texture1"), 0);
     shaders[0] -> setInt("texture2", 1);
@@ -301,9 +307,11 @@ void Engine::draw(){
     // bind textures
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture[0]);
+    tracker.countTextureBind();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, texture[1]);
+    tracker.countTextureBind();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
     for (int i = 0; i < cubes_tot; i++) {
@@ -320,9 +328,11 @@ void Engine::draw(){
 
     // One draw call only
     tracker.countDrawCall();
-    tracker.countTrinagles(36 * cubes_tot);
+    tracker.countTriangles(12 * cubes_tot);
     glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, cubes_tot);
     glBindVertexArray(0);
+
+    tracker.endCpuRender();
 
 }
 
