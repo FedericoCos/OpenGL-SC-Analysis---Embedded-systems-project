@@ -45,7 +45,7 @@ int Engine::init(){
     rot.resize(CUBES);
     trans.resize(CUBES);
 
-    cubes_tot = 1000;
+    cubes_tot = 1000000;
 
     // Random variables for cubes
     for(int i = 0; i < CUBES; i++){
@@ -275,9 +275,9 @@ void Engine::render_loop(){
     }
 
     // Deletes all ImGUI instances
-	ImGui_ImplOpenGL3_Shutdown();
+	/* ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
+	ImGui::DestroyContext(); */
 
     glDeleteVertexArrays(1, &cVAO);
     glDeleteBuffers(1, &cVBO);
