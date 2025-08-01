@@ -33,7 +33,7 @@
 class Engine{
 public:
     
-    int init();
+    int init(int cubes, bool imgui, bool save);
     void render_loop();
 
 private:
@@ -41,6 +41,7 @@ private:
     float past_time = 0;
     float dtime;
     PerfTracker tracker;
+    bool is_imgui = true;
 
     // buffers for shaders
     unsigned int VBO[NUM];

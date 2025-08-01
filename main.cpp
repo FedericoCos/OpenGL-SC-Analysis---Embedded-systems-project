@@ -5,7 +5,7 @@ void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int heihgt
     glViewport(0, 0, width, heihgt);
 }
 
-int Engine::init(){
+int Engine::init(int cubes, bool imgui, bool save){
     // GLFW initialization
     glfwInit();
     // First specify version of OpenGL
@@ -38,14 +38,15 @@ int Engine::init(){
 
 
     stbi_set_flip_vertically_on_load(true);
-    tracker.init();
+    tracker.init(save);
+    is_imgui = imgui;
 
     tr.resize(CUBES);
     sc.resize(CUBES);
     rot.resize(CUBES);
     trans.resize(CUBES);
 
-    cubes_tot = 1000000;
+    cubes_tot = cubes;
 
     // Random variables for cubes
     for(int i = 0; i < CUBES; i++){
@@ -202,12 +203,14 @@ void Engine::render_loop(){
     projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
 
     // ImGui
-    /* IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330"); */
+    if(is_imgui){
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+        ImGui::StyleColorsDark();
+        ImGui_ImplGlfw_InitForOpenGL(window, true);
+        ImGui_ImplOpenGL3_Init("#version 330");
+    }
 
     while(!glfwWindowShouldClose(window))
     {   
@@ -222,50 +225,52 @@ void Engine::render_loop(){
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        /* ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame(); */
-
         draw();
 
-        /* ImGui::Begin("STATS");
-        ImGui::Text("FPS: %.1f", 1.0f / dtime);
-        ImGui::End();
-        
-		ImGui::Begin("CUBES");
-        ImGui::InputInt("Num Cubes", &cubes_tot);
-        cubes_tot = std::min(CUBES, cubes_tot);
-        ImGui::InputFloat("Spread fact", &spread);
-        ImGui::InputFloat("Rot Speed", &rot_speed);
-		ImGui::End();
+        if(is_imgui){
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
 
-        ImGui::Begin("CAMERA");
-        int w = width, h = height;
-        float np = near_plane, fp = far_plane, f = fov;
-        ImGui::InputFloat("FOV", &f);
-        ImGui::InputFloat("Near Plane", &np);
-        ImGui::InputFloat("Far Plane", &fp);
-        glfwGetWindowSize(window, &w, &h);
-        if(
-            w != width ||
-            h != height ||
-            np != near_plane ||
-            fp != far_plane ||
-            f != fov
-        ){
-            width = w;
-            height = h;
-            near_plane = np;
-            far_plane = fp;
-            fov = f;
-            projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
+            ImGui::Begin("STATS");
+            ImGui::Text("FPS: %.1f", 1.0f / dtime);
+            ImGui::End();
+            
+            ImGui::Begin("CUBES");
+            ImGui::InputInt("Num Cubes", &cubes_tot);
+            cubes_tot = std::min(CUBES, cubes_tot);
+            ImGui::InputFloat("Spread fact", &spread);
+            ImGui::InputFloat("Rot Speed", &rot_speed);
+            ImGui::End();
+
+            ImGui::Begin("CAMERA");
+            int w = width, h = height;
+            float np = near_plane, fp = far_plane, f = fov;
+            ImGui::InputFloat("FOV", &f);
+            ImGui::InputFloat("Near Plane", &np);
+            ImGui::InputFloat("Far Plane", &fp);
+            glfwGetWindowSize(window, &w, &h);
+            if(
+                w != width ||
+                h != height ||
+                np != near_plane ||
+                fp != far_plane ||
+                f != fov
+            ){
+                width = w;
+                height = h;
+                near_plane = np;
+                far_plane = fp;
+                fov = f;
+                projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
+            }
+
+
+            ImGui::End();
+
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         }
-
-
-        ImGui::End();
-
-        ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); */
 
         glfwSwapBuffers(window);
         glfwPollEvents(); 
@@ -275,9 +280,11 @@ void Engine::render_loop(){
     }
 
     // Deletes all ImGUI instances
-	/* ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext(); */
+    if(is_imgui){
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+    }
 
     glDeleteVertexArrays(1, &cVAO);
     glDeleteBuffers(1, &cVBO);
@@ -337,9 +344,15 @@ void Engine::draw(){
 }
 
 
-int main(){
+int main(int argc, char * argv[]){
+    if(argc < 4){
+        std::cerr << "Not enough parameter passed. You must give, in order, num of cubes, whether to draw imgui and whether to save stats" << std::endl;
+        return -1;
+    }
+
     Engine engine;
-    if(engine.init()){
+    int c = std::atoi(argv[1]);
+    if(engine.init(c, strcmp(argv[2], "true") == 0, strcmp(argv[3], "true") == 0)){
         return -1;
     }
 

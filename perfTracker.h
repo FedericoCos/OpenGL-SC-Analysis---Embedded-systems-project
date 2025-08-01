@@ -42,11 +42,11 @@ private:
     size_t historySize = 100;
 
 public:
-    void init(size_t history = 100, const std::string &csvPath = "stats.csv") {
+    void init(bool &save, size_t history = 100, const std::string &csvPath = "stats.csv") {
         historySize = history;
         frameHistory.resize(historySize, 0.0);
 
-        if(!csvPath.empty()){
+        if(!csvPath.empty() && save){
             csvFile.open(csvPath, std::ios::out);
             if (csvFile.is_open()) {
                 csvEnabled = true;

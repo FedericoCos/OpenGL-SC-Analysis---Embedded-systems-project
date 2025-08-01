@@ -30,7 +30,7 @@ $(TARGET): $(ALL_SRC)
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS)
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) 1000 true false
 
 clean:
 	rm -f $(TARGET)
