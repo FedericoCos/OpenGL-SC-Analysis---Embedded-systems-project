@@ -1,93 +1,110 @@
 #pragma once
+
 #include <iostream>
 #include <chrono>
 #include <vector>
 #include <algorithm>
-#include <cstring>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <numeric>   // For std::accumulate
+#include <iomanip>   // For std::fixed, std::setprecision
 
-class PerfTracker{
+class PerfTracker {
 public:
+    // Clock
     using Clock = std::chrono::high_resolution_clock;
-    std::chrono::time_point<Clock> frameStart;
-    std::chrono::time_point<Clock> cpuStart;
+    std::chrono::time_point<Clock> frameStart, cpuRenderStart;
 
-    double frameTime = 0.0;
-    double cpuTime = 0.0;
-    double minFrame = 9999.0, maxFrame = 0.0;
-    double avgFrame = 0.0;
-    size_t frameCount = 0;
+    // Frame timings (in milliseconds)
+    double frameTime = 0.0, cpuRenderTime = 0.0, gpuWaitTime = 0.0;
+    double minFrame = 9999.0, maxFrame = 0.0, avgFrame = 0.0;
     double fps = 0.0;
 
-    // Draw statistics
+    // Frame counters
+    size_t frameCount = 0;
     int drawCalls = 0;
     int trisThisFrame = 0;
 
-    // GPU timing support -> not available in ES2.0
-    /* bool hasTimerQuery = false;
-    GLuint timerQuery = 0;
-    GLuint disjointAvailable = 0;
-    double gpuTimeMs = -1.0; */
+    // State change counters
+    int shaderBinds = 0;
+    int textureBinds = 0;
 
+    // Memory tracking (in bytes)
+    long long totalVramAllocated = 0;
+    long long dataUploadedThisFrame = 0;
+
+private:
     // For FPS smoothing
     std::vector<double> frameHistory;
-    size_t maxHistory = 100;
+    size_t historySize = 100;
 
-    void init(){
-        frameHistory.resize(maxHistory);
+public:
+    void init(size_t history = 100) {
+        historySize = history;
+        frameHistory.resize(historySize, 0.0);
     }
 
-    void beginFrame(){
+    void beginFrame() {
         frameStart = Clock::now();
+        // Reset per-frame counters
         drawCalls = 0;
         trisThisFrame = 0;
-        cpuStart = frameStart;
+        shaderBinds = 0;
+        textureBinds = 0;
+        dataUploadedThisFrame = 0;
     }
 
-    void markCpuRenderEnd(){
+    void beginCpuRender() {
+        cpuRenderStart = Clock::now();
+    }
+
+    void endCpuRender() {
         auto cpuEnd = Clock::now();
-        cpuTime = std::chrono::duration<double, std::milli>(cpuEnd-cpuStart).count();
+        cpuRenderTime = std::chrono::duration<double, std::milli>(cpuEnd - cpuRenderStart).count();
     }
 
-    void endFrame(){
+    void endFrame() {
         auto frameEnd = Clock::now();
         frameTime = std::chrono::duration<double, std::milli>(frameEnd - frameStart).count();
-        cpuTime = frameTime;
+        gpuWaitTime = frameTime - cpuRenderTime;
 
+        // Update history for smoothed FPS
+        frameHistory[frameCount % historySize] = frameTime;
         frameCount++;
-        frameHistory[frameCount % maxHistory] = frameTime;
 
-        double sum = 0.0;
-        for(auto t : frameHistory){
-            sum += t;
-        }
-        avgFrame = sum / maxHistory;
+        double sum = std::accumulate(frameHistory.begin(), frameHistory.end(), 0.0);
+        size_t currentHistorySize = (frameCount < historySize) ? frameCount : historySize;
+        avgFrame = sum / currentHistorySize;
         fps = (avgFrame > 0.0) ? (1000.0 / avgFrame) : 0.0;
 
         minFrame = std::min(minFrame, frameTime);
         maxFrame = std::max(maxFrame, frameTime);
     }
 
+    // --- Counter Methods ---
+    void countDrawCall() { drawCalls++; }
+    void countTriangles(int tris) { trisThisFrame += tris; }
+    void countShaderBind() { shaderBinds++; }
+    void countTextureBind() { textureBinds++; }
 
-    void countDrawCall(){
-        drawCalls++;
+    // --- Memory Tracking Methods ---
+    void trackVramAllocation(long long bytes) { totalVramAllocated += bytes; }
+    void trackVramDeallocation(long long bytes) { totalVramAllocated -= bytes; }
+    void trackDataUpload(long long bytes) { dataUploadedThisFrame += bytes; }
+
+    void printStats() {
+        // Convert memory to MB for readability
+        double vramMB = totalVramAllocated / (1024.0 * 1024.0);
+        double uploadKB = dataUploadedThisFrame / 1024.0;
+
+        std::cout << std::fixed << std::setprecision(4)
+              << "FPS: " << fps
+              << " | Frame: " << avgFrame << "ms"
+              << " (Min: " << minFrame << "ms, Max: " << maxFrame << "ms)"
+              << " | CPU: " << cpuRenderTime << "ms"
+              << " | GPU Wait: " << gpuWaitTime << "ms"
+              << " | Calls: " << drawCalls
+              << " | Tris: " << (trisThisFrame / 1000) << "k"
+              << " | VRAM: " << vramMB << "MB"
+              << " | Upload: " << uploadKB << "KB"
+              << std::endl;
     }
-
-    void countTrinagles(int tris){
-        trisThisFrame += tris;
-    }
-
-    void printStats(){
-        std::cout << "FPS: " << fps
-                  << " | Frame: " << frameTime << " ms" 
-                  <<"(avg: " << avgFrame << "ms, min: " << minFrame << " ms, max: " << maxFrame << " ms)"
-                  << " | CPU: " << cpuTime << " ms"
-                  << " | DrawCalls: " << drawCalls
-                  << " | Tris: " << trisThisFrame << std::endl; 
-    }
-
-private:
-
-
 };

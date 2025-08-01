@@ -56,6 +56,8 @@ int Engine::init(){
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
+    tracker.init();
+
     init_cubes();
     init_camera();
 
@@ -64,9 +66,8 @@ int Engine::init(){
 
     init_textures();
 
+    // Setting the projection matrix
     projection = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f);
-
-    tracker.init();
 
     eglSwapInterval(eglDisplay, 0);
 
@@ -78,6 +79,7 @@ void Engine::init_buffers(){
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW);
+    tracker.trackVramAllocation(sizeof(cube));
 
     // vertex position
     glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void *)0);
@@ -91,9 +93,11 @@ void Engine::init_buffers(){
     glVertexAttribPointer(textureLoc, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
     glEnableVertexAttribArray(textureLoc);
 
+    // cubes indices
     glGenBuffers(1, &ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+    tracker.trackVramAllocation(sizeof(cube_indices));
 
 }
 
@@ -106,6 +110,7 @@ void Engine::init_camera(){
 void Engine::init_shaders(){
     program = Shader::loadOrCreateProgram("my_shader.bin", vertexShaderSource, fragmentShaderSource);
 
+    // Getting the locations of uniforms and attributes in the shader
     posLoc = glGetAttribLocation(program, "vPosition");
     colorLoc = glGetAttribLocation(program, "vColor");
     rotAxLoc = glGetUniformLocation(program, "rotAxis");
@@ -143,12 +148,14 @@ void Engine::init_textures(){
 
     glGenTextures(2, texture);
     glBindTexture(GL_TEXTURE_2D, texture[0]);
+    tracker.countTextureBind();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     stbi_image_free(data);
 
     glBindTexture(GL_TEXTURE_2D, texture[1]);
+    tracker.countTextureBind();
     data = stbi_load("textures/awesomeface.png", &width, &height, &nrChannels, 0);
     if(data){
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -158,8 +165,6 @@ void Engine::init_textures(){
 
 void Engine::render_loop(){
     running = true;
-    
-
 
     while(running){
         tracker.beginFrame();
@@ -224,9 +229,12 @@ void Engine::process_input() {
 }
 
 void Engine::draw(){
+        tracker.beginCpuRender();
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
+        tracker.countShaderBind();
 
         // --- RENDER ---
 
@@ -236,6 +244,7 @@ void Engine::draw(){
         // Index buffer
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
+        // Set uniforms common to all cubes
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(cam.viewAtMat()));
         glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
@@ -245,21 +254,21 @@ void Engine::draw(){
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture[0]);
+        tracker.countTextureBind();
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture[1]);
+        tracker.countTextureBind();
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
 
         float r = (float)SDL_GetTicks() / 1000.f; // for rotation
         glUniform1f(timeLoc, r);
 
-        // --- MATRIX CALCULATIONS ---
         for (int i = 0; i < cubes; i++) {
             trans[i] = glm::mat4(1.0f);
             trans[i] = glm::scale(trans[i], sc[i]);
             trans[i] = glm::translate(trans[i], tr[i]);
-            // trans[i] = glm::rotate(trans[i], r, rot[i]);
 
             glUniform3fv(rotAxLoc, 1, glm::value_ptr(rot[i]));
 
@@ -267,11 +276,11 @@ void Engine::draw(){
 
             // Draw the cube
             tracker.countDrawCall();
-            tracker.countTrinagles(36);
+            tracker.countTriangles(12);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, 0);
         }
 
-        tracker.markCpuRenderEnd();
+        tracker.endCpuRender();
 }
 
 
