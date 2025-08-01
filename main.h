@@ -113,8 +113,6 @@ private:
     unsigned int cVBO; // Buffer for cube indices, just a single one
     unsigned int cEBO; // same as above
     unsigned int cVAO;
-    unsigned int instanceVBO;
-    unsigned int rotAxisVBO;
 
     std::vector<glm::vec3> tr;
     std::vector<glm::vec3> sc;
@@ -140,7 +138,7 @@ private:
 
     float mix_val = 0.2;
 
-    Shader * shaders[NUM];
+    Shader shader;
 
     // texture placeholder
     unsigned int texture[2];

@@ -1,8 +1,8 @@
 #include "main.h"
 #include "math.h"
 
-void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int heihgt){
-    glViewport(0, 0, width, heihgt);
+void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int height){
+    glViewport(0, 0, width, height);
 }
 
 int Engine::init(int cubes, bool imgui, bool save){
@@ -55,10 +55,10 @@ int Engine::init(int cubes, bool imgui, bool save){
         rot[i] = glm::normalize(glm::vec3(std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f)));
     }
 
-    init_VAO();
-    init_textures();
-    init_buffers();
     init_shaders();
+    init_VAO();
+    init_buffers();
+    init_textures();
 
     // Camera initialization
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -126,10 +126,6 @@ void Engine::init_buffers(){
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW); // copies vertices on the GPU (buffer memory)
     tracker.trackVramAllocation(sizeof(cube));
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
-    tracker.trackVramAllocation(sizeof(cube_indices));
-
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     // color attribute
@@ -137,34 +133,18 @@ void Engine::init_buffers(){
     glEnableVertexAttribArray(1); 
     // texture attribute
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6* sizeof(float)));
-    glEnableVertexAttribArray(2); 
+    glEnableVertexAttribArray(2);
 
-    glGenBuffers(1, &instanceVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, CUBES * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
-
-    std::size_t vec4Size = sizeof(glm::vec4);
-    for (int i = 0; i < 4; i++) {
-        glEnableVertexAttribArray(3 + i);
-        glVertexAttribPointer(3 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(i * vec4Size));
-        glVertexAttribDivisor(3 + i, 1); 
-    }
-
-    glGenBuffers(1, &rotAxisVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, rotAxisVBO);
-    glBufferData(GL_ARRAY_BUFFER, CUBES * sizeof(glm::vec3), rot.data(), GL_STATIC_DRAW);
-    glEnableVertexAttribArray(7);
-    glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glVertexAttribDivisor(7, 1);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
+    tracker.trackVramAllocation(sizeof(cube_indices));
 
     glBindVertexArray(0);
 
 }
 
 void Engine::init_shaders(){
-    shaders[0] = new Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
-    shaders[1] = new Shader("shaders/vertex.glsl", "shaders/fragment_yellow.glsl");
-
+    shader = Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
 }
 
 void Engine::init_textures(){
@@ -297,19 +277,19 @@ void Engine::render_loop(){
 void Engine::draw(){
     tracker.beginCpuRender();
 
-    shaders[0] -> use();
+    shader.use();
     tracker.countShaderBind();
     glBindVertexArray(cVAO);
-    glUniform1i(glGetUniformLocation(shaders[0]->ID, "texture1"), 0);
-    shaders[0] -> setInt("texture2", 1);
-    shaders[0] -> setFloat("mix_val", mix_val);
+    glUniform1i(glGetUniformLocation(shader.ID, "texture1"), 0);
+    shader.setInt("texture2", 1);
+    shader.setFloat("mix_val", mix_val);
 
     glm::mat4 view = cam -> viewAtMat();
-    shaders[0] -> setMatrix("view", view);
-    shaders[0] -> setMatrix("projection", projection);
+    shader.setMatrix("view", view);
+    shader.setMatrix("projection", projection);
 
-    shaders[0]->setFloat("time", (float)glfwGetTime());
-    shaders[0]->setFloat("rotSpeed", rot_speed);
+    shader.setFloat("time", (float)glfwGetTime());
+    shader.setFloat("rotSpeed", rot_speed);
     
     // bind textures
     glActiveTexture(GL_TEXTURE0);
@@ -325,18 +305,16 @@ void Engine::draw(){
         trans[i] = glm::mat4(1.0f);
         trans[i] = glm::scale(trans[i], sc[i]);
         trans[i] = glm::translate(trans[i], spread * tr[i]);
+
+        shader.setMatrix("model", trans[i]);
+        shader.setVector3("rotAxis", rot[i]);
+
+        tracker.countDrawCall();
+        tracker.countTriangles(12 * cubes_tot);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, rotAxisVBO);
-
-    // Upload all instance transforms in one go
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, cubes_tot * sizeof(glm::mat4), trans.data());
-
-    // One draw call only
-    tracker.countDrawCall();
-    tracker.countTriangles(12 * cubes_tot);
-    glDrawElementsInstanced(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0, cubes_tot);
     glBindVertexArray(0);
 
     tracker.endCpuRender();

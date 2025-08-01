@@ -2,14 +2,17 @@
 layout (location = 0) in vec3 aPos;   // the position variable has attribute position 0
 layout (location = 1) in vec3 aColor; // the color variable has attribute position 1
 layout (location = 2) in vec2 aTexCoord;
-layout (location = 3) in mat4 instanceTransform;
-layout (location = 7) in vec3 rotAxis;
+
+
+
+uniform vec3 rotAxis;
   
 out vec3 ourColor; // output a color to the fragment shader
 out vec2 TexCoord;
 
 uniform mat4 view;
 uniform mat4 projection;
+uniform mat4 model;
 
 uniform float time;
 uniform float rotSpeed;
@@ -30,7 +33,7 @@ mat4 rotationMatrix(float angle, vec3 axis) {
 void main()
 {
     mat4 rotation = rotationMatrix(time * rotSpeed, rotAxis);
-    gl_Position = projection * view * instanceTransform * rotation * vec4(aPos, 1.0);
+    gl_Position = projection * view * model * rotation * vec4(aPos, 1.0);
     ourColor = aColor; // set ourColor to the input color we got from the vertex data
     TexCoord = aTexCoord;
 } 

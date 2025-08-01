@@ -17,6 +17,10 @@ public:
     // the program ID
     unsigned int ID;
 
+    Shader(){
+        
+    }
+
     // constuctor reads and builds the shader
     Shader(const char* vertexpath, const char* fragmentPath){
         //1. retrieve the vertex/fragment source code from filePath
@@ -111,6 +115,9 @@ public:
     } 
     void setMatrix(const std::string &name, glm::mat4 &mat){
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(mat));
+    }
+    void setVector3(const std::string &name, glm::vec3 &vec){
+        glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(vec));
     }
 
 };
