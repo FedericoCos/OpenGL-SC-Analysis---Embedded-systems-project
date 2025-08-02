@@ -297,11 +297,25 @@ void Engine::draw(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); */
 
     shader.setInt("numLights", num_lights);
+    glm::vec3 matAmbient(1.f, .5f, .31f);
+    glm::vec3 matDiffuse(1.f, .5f, .31f);
+    glm::vec3 matSpecular(.5f, .5f, .5f);
+    shader.setVector3("material.ambient", matAmbient);
+    shader.setVector3("material.diffuse", matDiffuse);
+    shader.setVector3("material.specular", matSpecular);
+    shader.setFloat("material.shininess", 32.0f);
+
+    glm::vec3 ambientLight(.2f, .2f, .2f);
+    glm::vec3 diffuseLight(.5f, .5f, .5f);
+    glm::vec3 specularLight(1.f, 1.f, 1.f);
+
 
     for (i = 0; i < num_lights; i++) {
         glm::vec3 position = trans[i] * glm::vec4(0.f, 0.f, 0.f, 1.f);
         shader.setVector3("lights[" + std::to_string(i) + "].position", position);
-        shader.setVector3("lights[" + std::to_string(i) + "].color", lightColor);
+        shader.setVector3("lights[" + std::to_string(i) + "].ambient", ambientLight);
+        shader.setVector3("lights[" + std::to_string(i) + "].diffuse", diffuseLight);
+        shader.setVector3("lights[" + std::to_string(i) + "].specular", specularLight);
     }
 
     for (;i < cubes_tot; i++) {

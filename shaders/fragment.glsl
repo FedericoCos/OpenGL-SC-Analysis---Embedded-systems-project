@@ -4,10 +4,20 @@
 out vec4 FragColor;
 
 uniform vec3 objectColor;
+struct Material{
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+};
+uniform Material material;
 
 struct Light{
     vec3 position;
-    vec3 color;
+    
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
 };
 uniform Light lights[MAX_LIGHTS];
 uniform int numLights;
@@ -39,17 +49,17 @@ void main()
                                 0.017 * (distance * distance));
 
         // Ambient (affected by attenuation)
-        vec3 ambientTerm = ambientStrength * lights[i].color;
+        vec3 ambientTerm = ambientStrength * lights[i].ambient * material.ambient;
 
         // Diffuse
         vec3 lightDir = normalize(lights[i].position - FragPos);
         float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuseTerm = diff * lights[i].color;
+        vec3 diffuseTerm = diff * lights[i].diffuse * material.diffuse;
 
         // Specular
         vec3 reflectDir = reflect(-lightDir, norm);
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-        vec3 specularTerm = specularStrength * spec * lights[i].color;
+        vec3 specularTerm = specularStrength * spec * lights[i].specular * material.specular;
 
         // Apply attenuation
         ambient  += ambientTerm  * attenuation;
