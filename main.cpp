@@ -176,7 +176,7 @@ void Engine::init_textures(){
 
     glBindTexture(GL_TEXTURE_2D, texture[1]);
     tracker.countTextureBind();
-    data = stbi_load("textures/awesomeface.png", &width, &height, &nrChannels, 0);
+    data = stbi_load("textures/container2_specular.png", &width, &height, &nrChannels, 0);
     if (data)
     {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -272,10 +272,16 @@ void Engine::draw(){
     shader.use();
     tracker.countShaderBind();
     glBindVertexArray(cVAO);
-    shader.setInt("material.diffuse", 0);
 
+    shader.setInt("material.diffuse", 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture[0]);
+    tracker.countTextureBind();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
+    shader.setInt("material.specular", 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texture[1]);
     tracker.countTextureBind();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
@@ -291,31 +297,19 @@ void Engine::draw(){
     glm::vec3 lightColor(1.f, 1.f, 1.f);
     shader.setVector3("objectColor", objColor);
 
-    /* shader.setFloat("time", (float)glfwGetTime());
-    shader.setFloat("rotSpeed", rot_speed);
-    
-    // bind textures
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture[0]);
-    tracker.countTextureBind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture[1]);
-    tracker.countTextureBind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); */
-
     shader.setInt("numLights", num_lights);
-    glm::vec3 matAmbient(1.f, .5f, .31f);
-    glm::vec3 matDiffuse(1.f, .5f, .31f);
-    glm::vec3 matSpecular(.5f, .5f, .5f);
-    shader.setVector3("material.ambient", matAmbient);
-    shader.setVector3("material.diffuse", matDiffuse);
-    shader.setVector3("material.specular", matSpecular);
     shader.setFloat("material.shininess", 32.0f);
 
     glm::vec3 ambientLight(.2f, .2f, .2f);
     glm::vec3 diffuseLight(.5f, .5f, .5f);
     glm::vec3 specularLight(1.f, 1.f, 1.f);
+    
+    glm::vec3 direction(-1.f, -1.f, 0.f);
+
+    shader.setVector3("directionalLight.direction", direction);
+    shader.setVector3("directionalLight.ambient", ambientLight);
+    shader.setVector3("directionalLight.diffuse", diffuseLight);
+    shader.setVector3("directionalLight.specular", specularLight);
 
 
     for (i = 0; i < num_lights; i++) {
