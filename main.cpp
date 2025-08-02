@@ -130,12 +130,8 @@ void Engine::init_buffers(){
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    /* // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
-    glEnableVertexAttribArray(1); 
-    // texture attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6* sizeof(float)));
-    glEnableVertexAttribArray(2); */
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
@@ -226,7 +222,7 @@ void Engine::render_loop(){
         glfwPollEvents(); 
 
         tracker.endFrame();
-        tracker.printStats();
+        //tracker.printStats();
     }
 
     // Deletes all ImGUI instances
@@ -247,6 +243,30 @@ void Engine::render_loop(){
 void Engine::draw(){
     tracker.beginCpuRender();
 
+    glm::mat4 view = cam -> viewAtMat();
+
+    light_shader.use();
+    tracker.countShaderBind();
+    glBindVertexArray(lightVAO);
+    light_shader.setMatrix("view", view);
+    light_shader.setMatrix("projection", projection);
+
+    int i;
+    for (i = 0; i < num_lights; i++) {
+        trans[i] = glm::mat4(1.0f);
+        trans[i] = glm::rotate(trans[i], rot_speed * (float)glfwGetTime(), rot[i]);
+        trans[i] = glm::scale(trans[i], sc[i]);
+        trans[i] = glm::translate(trans[i], spread * tr[i]);
+        trans[i] = glm::rotate(trans[i], rot_speed * (float)glfwGetTime(), rot[i]);
+
+        light_shader.setMatrix("model", trans[i]);
+
+        tracker.countDrawCall();
+        tracker.countTriangles(12 * cubes_tot);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        
+    }
+
     shader.use();
     tracker.countShaderBind();
     glBindVertexArray(cVAO);
@@ -255,15 +275,13 @@ void Engine::draw(){
     /* glUniform1i(glGetUniformLocation(shader.ID, "texture1"), 0);
     shader.setInt("texture2", 1);
     shader.setFloat("mix_val", mix_val); */
-
-    glm::mat4 view = cam -> viewAtMat();
     shader.setMatrix("view", view);
     shader.setMatrix("projection", projection);
+    shader.setVector3("viewPos", cam -> position);
 
     glm::vec3 objColor(1.f, .5f, .31f);
     glm::vec3 lightColor(1.f, 1.f, 1.f);
     shader.setVector3("objectColor", objColor);
-    shader.setVector3("lightColor", lightColor);
 
     /* shader.setFloat("time", (float)glfwGetTime());
     shader.setFloat("rotSpeed", rot_speed);
@@ -278,35 +296,21 @@ void Engine::draw(){
     tracker.countTextureBind();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); */
 
-    int i;
-    for (i = 0; i < (cubes_tot - num_lights); i++) {
-        trans[i] = glm::mat4(1.0f);
-        trans[i] = glm::scale(trans[i], sc[i]);
-        trans[i] = glm::translate(trans[i], spread * tr[i]);
-        trans[i] = glm::rotate(trans[i], (float)glfwGetTime(), rot[i]);
+    shader.setInt("numLights", num_lights);
 
-        shader.setMatrix("model", trans[i]);
-
-        tracker.countDrawCall();
-        tracker.countTriangles(12 * cubes_tot);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        
+    for (i = 0; i < num_lights; i++) {
+        glm::vec3 position = trans[i] * glm::vec4(0.f, 0.f, 0.f, 1.f);
+        shader.setVector3("lights[" + std::to_string(i) + "].position", position);
+        shader.setVector3("lights[" + std::to_string(i) + "].color", lightColor);
     }
 
-
-    light_shader.use();
-    tracker.countShaderBind();
-    glBindVertexArray(lightVAO);
-    light_shader.setMatrix("view", view);
-    light_shader.setMatrix("projection", projection);
-
-    for (i; i < cubes_tot; i++) {
+    for (;i < cubes_tot; i++) {
         trans[i] = glm::mat4(1.0f);
         trans[i] = glm::scale(trans[i], sc[i]);
         trans[i] = glm::translate(trans[i], spread * tr[i]);
-        trans[i] = glm::rotate(trans[i], (float)glfwGetTime(), rot[i]);
+        trans[i] = glm::rotate(trans[i], rot_speed * (float)glfwGetTime(), rot[i]);
 
-        light_shader.setMatrix("model", trans[i]);
+        shader.setMatrix("model", trans[i]);
 
         tracker.countDrawCall();
         tracker.countTriangles(12 * cubes_tot);

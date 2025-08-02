@@ -44,41 +44,36 @@ private:
     bool is_imgui = true;
 
     float cube[192] = {
-    // Front face (z = 0)
-    0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 0 top right
-    0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 0.f, // 1 bottom right
--0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, // 2 bottom left
--0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 1.f, // 3 top left
-
-    // Back face (z = 1)
-    0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 1.f, // 4 top right
-    0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 0.f, // 5 bottom right
--0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 0.f, // 6 bottom left
--0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 7 top left
-
+    // Front face (z = 0.5)
+     0.5f, 0.5f, 0.5f,  0.f,  0.f,  1.f,    1.f, 1.f,    // 0 top right
+     0.5f,-0.5f, 0.5f,  0.f,  0.f,  1.f,    1.f, 0.f,    // 1 bottom right
+    -0.5f,-0.5f, 0.5f,  0.f,  0.f,  1.f,    0.f, 0.f,    // 2 bottom left
+    -0.5f, 0.5f, 0.5f,  0.f,  0.f,  1.f,    0.f, 1.f,    // 3 top left
+    // Back face (z = -0.5)
+     0.5f, 0.5f,-0.5f,  0.f,  0.f, -1.f,    0.f, 1.f,    // 4 top right
+     0.5f,-0.5f,-0.5f,  0.f,  0.f, -1.f,    0.f, 0.f,    // 5 bottom right
+    -0.5f,-0.5f,-0.5f,  0.f,  0.f, -1.f,    1.f, 0.f,    // 6 bottom left
+    -0.5f, 0.5f,-0.5f,  0.f,  0.f, -1.f,    1.f, 1.f,    // 7 top left
     // Left face (x = -0.5)
--0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, // 8 top right
--0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 0.f, // 9 bottom right
--0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //10 bottom left
--0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //11 top left
-
+    -0.5f, 0.5f,-0.5f, -1.f,  0.f,  0.f,    1.f, 1.f,    // 8 top right
+    -0.5f,-0.5f,-0.5f, -1.f,  0.f,  0.f,    1.f, 0.f,    // 9 bottom right
+    -0.5f,-0.5f, 0.5f, -1.f,  0.f,  0.f,    0.f, 0.f,    //10 bottom left
+    -0.5f, 0.5f, 0.5f, -1.f,  0.f,  0.f,    0.f, 1.f,    //11 top left
     // Right face (x = 0.5)
-    0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //12 top left
-    0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //13 bottom left
-    0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 0.f, //14 bottom right
-    0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, //15 top right
-
+     0.5f, 0.5f, 0.5f,  1.f,  0.f,  0.f,    0.f, 1.f,    //12 top left
+     0.5f,-0.5f, 0.5f,  1.f,  0.f,  0.f,    0.f, 0.f,    //13 bottom left
+     0.5f,-0.5f,-0.5f,  1.f,  0.f,  0.f,    1.f, 0.f,    //14 bottom right
+     0.5f, 0.5f,-0.5f,  1.f,  0.f,  0.f,    1.f, 1.f,    //15 top right
     // Top face (y = 0.5)
-    0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, //16 top right
-    0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 0.f, //17 bottom right
--0.5f,  0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //18 bottom left
--0.5f,  0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //19 top left
-
+     0.5f, 0.5f,-0.5f,  0.f,  1.f,  0.f,    1.f, 1.f,    //16 top right
+     0.5f, 0.5f, 0.5f,  0.f,  1.f,  0.f,    1.f, 0.f,    //17 bottom right
+    -0.5f, 0.5f, 0.5f,  0.f,  1.f,  0.f,    0.f, 0.f,    //18 bottom left
+    -0.5f, 0.5f,-0.5f,  0.f,  1.f,  0.f,    0.f, 1.f,    //19 top left
     // Bottom face (y = -0.5)
-    0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   1.f, 0.f, //20 bottom right
-    0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   1.f, 1.f, //21 top right
--0.5f, -0.5f, -.5f,   1.f, 1.f, 1.f,   0.f, 1.f, //22 top left
--0.5f, -0.5f, 0.5f,   1.f, 1.f, 1.f,   0.f, 0.f, //23 bottom left
+     0.5f,-0.5f, 0.5f,  0.f, -1.f,  0.f,    1.f, 0.f,    //20 bottom right
+     0.5f,-0.5f,-0.5f,  0.f, -1.f,  0.f,    1.f, 1.f,    //21 top right
+    -0.5f,-0.5f,-0.5f,  0.f, -1.f,  0.f,    0.f, 1.f,    //22 top left
+    -0.5f,-0.5f, 0.5f,  0.f, -1.f,  0.f,    0.f, 0.f    //23 bottom left
 };
 
     unsigned int cube_indices[36] = {
@@ -134,6 +129,13 @@ private:
     glm::mat4 projection;
     Shader shader;
     Shader light_shader;
+
+    struct Light
+    {
+        glm::vec3 position;
+        glm::vec3 color;
+    };
+    
 
     // texture placeholder
     unsigned int texture[2];
