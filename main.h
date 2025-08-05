@@ -1,27 +1,12 @@
 #pragma once
-#include "imgui/imgui.h"
-#include "imgui/backends/imgui_impl_glfw.h"
-#include "imgui/backends/imgui_impl_opengl3.h"
-
-
-#include "glad/glad.h"
-#include "GLFW/glfw3.h"
+#include "helpers.h"
 
 #include "shader.h"
 #include "camera.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include <iostream>
-#include <vector>
 
 #include "perfTracker.h"
+#include "model.h"
 
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
@@ -135,6 +120,9 @@ private:
         glm::vec3 position;
         glm::vec3 color;
     };
+
+    Model model_obj;
+    Shader model_shader;
     
 
     // texture placeholder

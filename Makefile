@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -Wall -Wextra -std=c++17
-LDFLAGS = -ldl -lglfw -lGL -lX11 -lpthread
+LDFLAGS = -ldl -lglfw -lGL -lX11 -lpthread -lassimp
 
 # ImGui sources and backends
 IMGUI_DIR = imgui
