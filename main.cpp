@@ -1,11 +1,16 @@
 #include "main.h"
 #include "math.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int height){
     glViewport(0, 0, width, height);
 }
 
 int Engine::init(int cubes, bool imgui, bool save){
+    // INIZIALIZZAZIONE FINESTRA
+
     // GLFW initialization
     glfwInit();
     // First specify version of OpenGL
@@ -66,6 +71,8 @@ int Engine::init(int cubes, bool imgui, bool save){
     glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
     cam = new Camera(pos, tar, 30.0f, 2.5f);
 
+    model_obj = Model("/home/zancanonzanca/Desktop/OpenGL-SC-Analysis---Embedded-systems-project/resources/backpack/backpack.obj");
+
     // To disable vsync
     glfwSwapInterval(0);
 
@@ -112,6 +119,10 @@ void Engine::process_input(){
 }
 
 void Engine::init_VAO(){
+    // VAO Sono dei container è come avere dei box che ti contengono un set di dati
+    // quindi dentro un vao avrai i dati dei vertii, normali, colori, etc
+    // E' solo un container, come una scatola, non possiede i dati per se
+
     // Genrating VAO
     // glGenVertexArrays(NUM, VAO);
     glGenVertexArrays(1, &cVAO);
@@ -122,8 +133,10 @@ void Engine::init_buffers(){
     glGenBuffers(1, &cVBO);
     glGenBuffers(1, &cEBO);
 
+    // guarda qui, bindi il VAO per dirgli "le prossime cose che definisco, mettile qui"
     glBindVertexArray(cVAO);
 
+    // Il VBO sono effettivamente i vertici, normali e company
     glBindBuffer(GL_ARRAY_BUFFER, cVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW); // copies vertices on the GPU (buffer memory)
     tracker.trackVramAllocation(sizeof(cube));
@@ -135,12 +148,13 @@ void Engine::init_buffers(){
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
+    // GLI EBO sono gli indici, perchè un vertice può fare parte di più triangoli
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
     tracker.trackVramAllocation(sizeof(cube_indices));
 
 
-
+    // vedi qui bindo l'altro VAO e poi ci salvo nuovo cose
     glBindVertexArray(lightVAO);
     glBindBuffer(GL_ARRAY_BUFFER, cVBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
@@ -152,8 +166,10 @@ void Engine::init_buffers(){
 }
 
 void Engine::init_shaders(){
+    // CREAZIONE SHADER
     shader = Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
     light_shader = Shader("shaders/vertex.glsl", "shaders/fragment_light.glsl");
+    model_shader = Shader("shaders/vertex_model.glsl", "shaders/fragment_model.glsl");
 }
 
 void Engine::init_textures(){
@@ -247,7 +263,7 @@ void Engine::draw(){
 
     glm::mat4 view = cam -> viewAtMat();
 
-    light_shader.use();
+    /* light_shader.use();
     tracker.countShaderBind();
     glBindVertexArray(lightVAO);
     light_shader.setMatrix("view", view);
@@ -265,7 +281,7 @@ void Engine::draw(){
 
         tracker.countDrawCall();
         tracker.countTriangles(12 * cubes_tot);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
         
     }
 
@@ -286,9 +302,6 @@ void Engine::draw(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
 
-    /* glUniform1i(glGetUniformLocation(shader.ID, "texture1"), 0);
-    shader.setInt("texture2", 1);
-    shader.setFloat("mix_val", mix_val); */
     shader.setMatrix("view", view);
     shader.setMatrix("projection", projection);
     shader.setVector3("viewPos", cam -> position);
@@ -330,9 +343,23 @@ void Engine::draw(){
 
         tracker.countDrawCall();
         tracker.countTriangles(12 * cubes_tot);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        
-    }
+        //glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    } */
+
+    // qua dico usa sto shader ora
+    model_shader.use();
+    model_shader.setMatrix("projection", projection);
+    model_shader.setMatrix("view", view);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+    model_shader.setMatrix("model", model);
+
+    model_obj.Draw(model_shader);
+
+
+
 
     glBindVertexArray(0);
 
