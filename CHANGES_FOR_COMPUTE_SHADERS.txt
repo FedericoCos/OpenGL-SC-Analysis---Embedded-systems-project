@@ -1,0 +1,99 @@
+Recap of every change made to original main branch:
+1. Enabled Compute-Shader Support
+
+By default OpenGL 3.3 (no compute stage) and an old glad loader. We need OpenGL 4.3+ for glDispatchCompute, image load/store, etc.
+
+    Regenerate glad
+    – Went to https://glad.dav1d.de, selected API “gl 4.3 Core,” downloaded & replaced glad.c / glad.h / KHR/khrplatform.h.
+    – Now the loader exports GL_COMPUTE_SHADER, glDispatchCompute, glMemoryBarrier, glTexStorage2D, glBindImageTexture, etc.
+
+    Request a 4.3 Core context
+    In Engine::init():
+
+    - glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    - glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    + glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    + glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
+    This matches driver’s “GL Version: 4.6” and prevents null-function crashes.
+
+2. Compute-Shader Helper
+
+We needed a tiny wrapper to load, compile, link, dispatch a .comp file.
+
+    Added compute_shader.h
+
+        Defines class ComputeShader
+
+        Loads a file, compiles a GL_COMPUTE_SHADER, links a program, and offers .use(), .dispatch(x,y,z), .barrier().
+
+3. Menger-Sponge Compute Shader
+
+Port the Shadertoy Menger sponge into a desktop compute pass.
+
+    Added shaders/compute_menger.comp
+
+        Full port of Inigo Quilez’s ray-march code from Shadertoy into a #version 430 compute shader.
+
+        Operates over a 16×16 work-group, writes final color via imageStore(imgOutput, pix, vec4(col,1)).
+
+4. Screen-Quad Pass
+
+Compute shaders have no implicit screen output, so we must draw the resulting texture.
+
+    Added two new shaders in shaders/:
+
+        screen.vert – simple pass-through vertex shader that forwards UVs.
+
+        screen.frag – samples uniform sampler2D tex and writes FragColor = texture(tex, vUV);.
+
+    Updated Engine::init_shaders() to also load:
+
+    screen_shader = Shader("shaders/screen.vert", "shaders/screen.frag");
+
+    In Engine::init_VAO(), after cube VAOs, generated a quad VAO/VBO bound to 4 verts covering NDC [−1,1]×[−1,1].
+
+5. Hooking It All Up in main.cpp
+
+Where:
+
+    Compute-texture setup (end of Engine::init()):
+
+glGenTextures(1, &compTex);
+glBindTexture(GL_TEXTURE_2D, compTex);
+glTexStorage2D(..., GL_RGBA32F, WIN_WIDTH, WIN_HEIGHT);
+glBindImageTexture(0, compTex, 0, GL_FALSE, 0,
+                   GL_WRITE_ONLY, GL_RGBA32F);
+mengerCS = new ComputeShader("shaders/compute_menger.comp");
+
+Created an offscreen RGBA32F texture as image unit 0 for the compute pass.
+
+Compute dispatch & barrier (start of Engine::render_loop() loop):
+
+mengerCS->use();
+glUniform1f(..., glfwGetTime());
+glUniform2f(..., WIN_WIDTH, WIN_HEIGHT);
+mengerCS->dispatch((WIN_WIDTH+15)/16, (WIN_HEIGHT+15)/16, 1);
+mengerCS->barrier();
+
+Draw full-screen quad
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    screen_shader.use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, compTex);
+    glUniform1i(..., 0);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    Commented out your original draw()/draw_imgui() for now so nothing else crashes.
+
+6. Final Outcome
+
+    Compile & link with a proper 4.3 Core loader and context.
+
+    Run a compute pass each frame that ray-marches the Menger sponge into compTex.
+
+    Render that texture full-screen via a trivial quad shader.
+
+    Camera and original model code can be re-uncommented once stabilized the compute-only path.

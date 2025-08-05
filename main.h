@@ -1,4 +1,6 @@
 #pragma once
+
+#include "compute_shader.h"
 #include "helpers.h"
 
 #include "shader.h"
@@ -22,6 +24,11 @@ public:
     void render_loop();
 
 private:
+    GLuint wallTex;
+    GLuint compTex;
+    ComputeShader* mengerCS;
+    Shader screen_shader;
+    GLuint quadVAO, quadVBO;
     GLFWwindow * window;
     float past_time = 0;
     float dtime;

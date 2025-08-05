@@ -14,7 +14,7 @@ int Engine::init(int cubes, bool imgui, bool save){
     // GLFW initialization
     glfwInit();
     // First specify version of OpenGL
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // first argument is what we want to configure
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4); // first argument is what we want to configure
                                                    // second is the value for that option
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // load open gl functions with no back compatibility
@@ -66,15 +66,25 @@ int Engine::init(int cubes, bool imgui, bool save){
     init_buffers();
     init_textures();
 
-    // Camera initialization
-    glm::vec3 pos = glm::vec3(0.0f, 0.0f, 3.0f);
-    glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
-    cam = new Camera(pos, tar, 30.0f, 2.5f);
+    // ←← COMPUTE SETUP: create an RGBA32F texture and bind it to image unit 0
+    glGenTextures(1, &compTex);
+    glBindTexture(GL_TEXTURE_2D, compTex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, WIN_WIDTH, WIN_HEIGHT);
+    glBindImageTexture(0, compTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    model_obj = Model("/home/toxin/Desktop/OpenGL-SC-Analysis---Embedded-systems-project/resources/backpack/backpack.obj");
+    // compile & link your Menger‐sponge compute shader
+    mengerCS = new ComputeShader("shaders/compute_advanced_menger.comp");
+    // ←← end COMPUTE SETUP
 
+    // create lvalues so Camera(glm::vec3&, glm::vec3&, …) will accept them
+    glm::vec3 camPos(0.0f, 0.0f, 3.0f);
+    glm::vec3 camTar(0.0f, 0.0f, -1.0f);
+    cam = new Camera(camPos, camTar, 30.0f, 2.5f);
     // To disable vsync
     glfwSwapInterval(0);
+
+    std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
+
 
     return 0;
 }
@@ -127,6 +137,25 @@ void Engine::init_VAO(){
     // glGenVertexArrays(NUM, VAO);
     glGenVertexArrays(1, &cVAO);
     glGenVertexArrays(1, &lightVAO);
+
+    // fullscreen quad
+    float quadVerts[] = {
+    // pos      // uv
+    -1,-1,     0,0,
+    1,-1,     1,0,
+    -1, 1,     0,1,
+    1, 1,     1,1,
+    };
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,4*sizeof(float),(void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,4*sizeof(float),(void*)(2*sizeof(float)));
+    glBindVertexArray(0);
 }
 
 void Engine::init_buffers(){
@@ -170,35 +199,54 @@ void Engine::init_shaders(){
     shader = Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
     light_shader = Shader("shaders/vertex.glsl", "shaders/fragment_light.glsl");
     model_shader = Shader("shaders/vertex_model.glsl", "shaders/fragment_model.glsl");
+    screen_shader = Shader("shaders/screen.vert", "shaders/screen.frag");
 }
 
 void Engine::init_textures(){
     int width, height, nrChannels;
-    unsigned char *data = stbi_load("textures/container2.png", &width, &height, &nrChannels, 0); 
-    if(!data){
-        std::cout << "Failed to load texture" << std::endl;
-        exit(0);
-    }
 
+    // load container2
+    unsigned char* data = stbi_load("textures/container2.png", &width, &height, &nrChannels, 0);
+    if(!data){
+        std::cerr << "Failed to load textures/container2.png\n";
+        exit(1);
+    }
     glGenTextures(2, texture);
     glBindTexture(GL_TEXTURE_2D, texture[0]);
     tracker.countTextureBind();
     tracker.trackVramAllocation(width * height * 3);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
-
     stbi_image_free(data);
-    
 
-    glBindTexture(GL_TEXTURE_2D, texture[1]);
-    tracker.countTextureBind();
+    // load container2_specular
     data = stbi_load("textures/container2_specular.png", &width, &height, &nrChannels, 0);
-    if (data)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    if(data){
+        glBindTexture(GL_TEXTURE_2D, texture[1]);
+        tracker.countTextureBind();
         tracker.trackVramAllocation(width * height * 3);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
+        stbi_image_free(data);
     }
+
+    // load wall.jpg for compute-shader sampling
+    int w, h, n;
+    unsigned char* wallData = stbi_load("textures/wall.jpg", &w, &h, &n, 0);
+    if(!wallData){
+        std::cerr << "Failed to load textures/wall.jpg\n";
+        exit(1);
+    }
+    glGenTextures(1, &wallTex);
+    glBindTexture(GL_TEXTURE_2D, wallTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_REPEAT);
+    GLenum fmt = (n == 4 ? GL_RGBA : GL_RGB);
+    glTexImage2D(GL_TEXTURE_2D, 0, fmt, w, h, 0, fmt, GL_UNSIGNED_BYTE, wallData);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    stbi_image_free(wallData);
 }
 
 void Engine::render_loop(){
@@ -230,11 +278,32 @@ void Engine::render_loop(){
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        draw();
+        // bind wall texture to image unit 0
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, wallTex);
+        glUniform1i(glGetUniformLocation(mengerCS->ID, "iChannel0"), 0);
 
-        if(is_imgui){
-            draw_imgui();
-        }
+        // ←← COMPUTE DISPATCH
+        mengerCS->use();
+        glUniform1f(glGetUniformLocation(mengerCS->ID, "iTime"),  glfwGetTime());
+        glUniform2f(glGetUniformLocation(mengerCS->ID, "iResolution"),
+                    float(WIN_WIDTH), float(WIN_HEIGHT));
+        mengerCS->dispatch( (WIN_WIDTH+15)/16, (WIN_HEIGHT+15)/16, 1 );
+        mengerCS->barrier();
+        // ←← end COMPUTE DISPATCH
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        screen_shader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, compTex);
+        glUniform1i(glGetUniformLocation(screen_shader.ID, "tex"), 0);
+        glBindVertexArray(quadVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        //draw();
+
+        //if(is_imgui){
+        //    draw_imgui();
+        //}
 
         glfwSwapBuffers(window);
         glfwPollEvents(); 

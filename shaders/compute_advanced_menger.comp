@@ -1,0 +1,192 @@
+#version 430
+
+// Work‐group size
+layout(local_size_x = 16, local_size_y = 16) in;
+
+// Output image (RGBA float)
+layout(rgba32f, binding = 0) uniform image2D imgOutput;
+
+// Shadertoy uniforms
+uniform float    iTime;
+uniform vec2     iResolution;
+uniform sampler2D iChannel0;   // texture bound at texture unit 0
+
+// ----------------------------------------------------------------------------
+// Helpers & distance field functions
+// ----------------------------------------------------------------------------
+
+#define FAR 40.0
+
+float hash(float n) {
+    return fract(cos(n) * 45758.5453);
+}
+
+vec3 tex3D(sampler2D tex, in vec3 p, in vec3 n) {
+    n = max(n * n, 0.001);
+    n /= (n.x + n.y + n.z);
+    return (texture(tex, p.yz) * n.x +
+            texture(tex, p.zx) * n.y +
+            texture(tex, p.xy) * n.z).xyz;
+}
+
+float sminP(float a, float b, float smoothing) {
+    float h = clamp(0.5 + 0.5 * (b - a) / smoothing, 0.0, 1.0);
+    return mix(b, a, h) - smoothing * h * (1.0 - h);
+}
+
+// The core “map” for the advanced Menger variation:
+float map(vec3 q) {
+    vec3 p = abs(fract(q / 3.0) * 3.0 - 1.5);
+    float d = min(max(p.x, p.y),
+                  min(max(p.y, p.z), max(p.x, p.z)))
+              - 1.0 + 0.05;
+
+    p = abs(fract(q) - 0.5);
+    d = max(d, min(max(p.x, p.y),
+                   min(max(p.y, p.z), max(p.x, p.z)))
+               - 1.0/3.0 + 0.05);
+
+    p = abs(fract(q * 2.0) * 0.5 - 0.25);
+    d = max(d, min(max(p.x, p.y),
+                   min(max(p.y, p.z), max(p.x, p.z)))
+               - 0.5/3.0 - 0.015);
+
+    p = abs(fract(q * (3.0/0.5)) * (0.5/3.0) - (0.5/6.0));
+    return max(d, min(max(p.x, p.y),
+                     min(max(p.y, p.z), max(p.x, p.z)))
+                   - 1.0/18.0 - 0.015);
+}
+
+float trace(vec3 ro, vec3 rd) {
+    float t = 0.0, dist;
+    for (int i = 0; i < 64; i++) {
+        dist = map(ro + rd * t);
+        if (dist < 0.0025 * t || t > FAR) break;
+        t += dist;
+    }
+    return t;
+}
+
+float refTrace(vec3 ro, vec3 rd) {
+    float t = 0.0, dist;
+    for (int i = 0; i < 16; i++) {
+        dist = map(ro + rd * t);
+        if (dist < 0.0025 * t || t > FAR) break;
+        t += dist;
+    }
+    return t;
+}
+
+vec3 normal(in vec3 p) {
+    vec2 e = vec2(0.005, -0.005);
+    return normalize(
+        e.xyy * map(p + e.xyy) +
+        e.yyx * map(p + e.yyx) +
+        e.yxy * map(p + e.yxy) +
+        e.xxx * map(p + e.xxx)
+    );
+}
+
+float calculateAO(in vec3 p, in vec3 n) {
+    float ao = 0.0, l;
+    const float nbIte = 6.0, maxDist = 1.0, falloff = 1.0;
+    for (float i = 1.0; i < nbIte + 0.5; i++) {
+        l = (i + hash(i)) * 0.5 / nbIte * maxDist;
+        ao += (l - map(p + n * l)) / pow(1.0 + l, falloff);
+    }
+    return clamp(1.0 - ao / nbIte, 0.0, 1.0);
+}
+
+float softShadow(vec3 ro, vec3 lp, float k) {
+    const int MAX_IT = 16;
+    vec3 rd = normalize(lp - ro);
+    float shade = 1.0, dist = 0.05, end = max(length(lp - ro), 0.001);
+    for (int i = 0; i < MAX_IT; i++) {
+        float h = map(ro + rd * dist);
+        shade = min(shade, smoothstep(0.0, 1.0, k * h / dist));
+        dist += clamp(h, 0.02, 0.25);
+        if (h < 0.001 || dist > end) break;
+    }
+    return min(max(shade, 0.0) + 0.5, 1.0);
+}
+
+// ---------------------------------------------------------------------------
+// mainImage() implementation from Shadertoy
+// ---------------------------------------------------------------------------
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    // Ray‐direction with barrel distortion
+    vec3 rd = normalize(vec3(2.0 * fragCoord - iResolution.xy, iResolution.y));
+    vec2 m = sin(vec2(0.0, 1.57079632) + iTime / 4.0);
+    rd.xy = mat2(m.y, -m.x, m) * rd.xy;
+    rd.xz = mat2(m.y, -m.x, m) * rd.xz;
+
+    vec3 ro = vec3(0.0, 0.0, iTime);
+    vec3 lp = ro + vec3(0.0, 1.0, 0.0);
+
+    vec3 col = vec3(0.0);
+    float t = trace(ro, rd);
+
+    if (t < FAR) {
+        vec3 sp = ro + rd * t;
+        vec3 sn = normal(sp);
+        vec3 ref = reflect(rd, sn);
+
+        const float ts = 2.0;
+        vec3 oCol = tex3D(iChannel0, sp * ts, sn);
+        vec3 q = abs(mod(sp, 3.0) - 1.5);
+        if (max(max(q.x, q.y), q.z) < 1.063) oCol *= vec3(0.7, 0.85, 1.0);
+        oCol = smoothstep(0.0, 1.0, oCol);
+
+        float sh  = softShadow(sp, lp, 16.0);
+        float ao  = calculateAO(sp, sn);
+
+        vec3 ld = normalize(lp - sp);
+        float diff = max(dot(ld, sn), 0.0);
+        float spec = pow(max(dot(reflect(-ld, sn), -rd), 0.0), 12.0);
+
+        float lDist = max(length(lp - sp), 0.001);
+        float atten = 1.0 / (1.0 + lDist * 0.25 + lDist * lDist * 0.1);
+        diff += max(dot(-rd, sn), 0.0) * 0.45;
+        spec += pow(max(dot(reflect(rd, sn), -rd), 0.0), 12.0) * 0.45;
+
+        // reflection
+        float rt = refTrace(sp + ref * 0.1, ref);
+        vec3 rsp = sp + ref * rt;
+        vec3 rsn = normal(rsp);
+
+        vec3 rCol = tex3D(iChannel0, rsp * ts, rsn);
+        q = abs(mod(rsp, 3.0) - 1.5);
+        if (max(max(q.x, q.y), q.z) < 1.063) rCol *= vec3(0.7, 0.85, 1.0);
+        rCol = sqrt(rCol);
+
+        float rlDist = length(lp - rsp);
+        float rAtten = 1.0 / (1.0 + rlDist * 0.25 + rlDist * rlDist * 0.1);
+        vec3 rDiff = vec3(max(dot(rsn, normalize(lp - rsp)), 0.0)) +
+                     vec3(max(dot(rsn, normalize(-rd - rsp)), 0.0) * 0.45);
+        rCol = min(rCol, vec3(1.0)) * rDiff * rAtten;
+
+        col = oCol * (diff + vec3(0.5, 0.6, 0.7)) +
+              vec3(0.5, 0.7, 1.0) * spec * 2.0 +
+              rCol * 0.25;
+
+        col = min(col * atten * sh * ao, vec3(1.0));
+    }
+
+    col = mix(col, vec3(0.55, 0.75, 1.0),
+              smoothstep(0.0, FAR - 15.0, t));
+
+    fragColor = vec4(col, 1.0);
+}
+
+// ---------------------------------------------------------------------------
+// Compute shader main()
+// ---------------------------------------------------------------------------
+void main() {
+    ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+    if (pix.x >= int(iResolution.x) || pix.y >= int(iResolution.y)) return;
+    vec2 uv = (vec2(pix) + 0.5) / iResolution;
+
+    vec4 color;
+    mainImage(color, uv * iResolution);
+    imageStore(imgOutput, pix, color);
+}
