@@ -71,7 +71,7 @@ int Engine::init(int cubes, bool imgui, bool save){
     glm::vec3 tar = glm::vec3(0.0f, 0.0f, -1.0f);
     cam = new Camera(pos, tar, 30.0f, 2.5f);
 
-    model_obj = Model("/home/zancanonzanca/Desktop/OpenGL-SC-Analysis---Embedded-systems-project/resources/backpack/backpack.obj");
+    model_obj = Model("/home/toxin/Desktop/OpenGL-SC-Analysis---Embedded-systems-project/resources/backpack/backpack.obj");
 
     // To disable vsync
     glfwSwapInterval(0);
