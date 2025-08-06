@@ -42,7 +42,6 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene){
 
     for(unsigned int i = 0; i < mesh -> mNumVertices; i++){
         Vertex vertex;
-
         glm::vec3 vector;
         vector.x = mesh -> mVertices[i].x;
         vector.y = mesh -> mVertices[i].y;
@@ -63,7 +62,6 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene){
         else{
             vertex.texCoords = glm::vec2(0.f, 0.f);
         }
-
         vertices.push_back(vertex);
     }
     // process indices
@@ -73,6 +71,7 @@ Mesh Model::processMesh(aiMesh *mesh, const aiScene *scene){
             indices.push_back(face.mIndices[j]);
         }
     }
+
 
     //process material
     if(mesh -> mMaterialIndex >= 0){
