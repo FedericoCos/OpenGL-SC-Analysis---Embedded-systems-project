@@ -17,7 +17,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
+#include <fstream>
+#include <sstream>
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -199,6 +200,18 @@ private:
 
     PerfTracker tracker;
 
+    // ——— Compute‐pass state ——————————————————————————
+    GLuint computeProg;    // program for compute‐as‐fragment
+    GLuint blitProg;      // program for blitting compute output
+    GLuint quadVBO, quadVAO;// fullscreen quad
+    GLuint compTex, compFBO;// texture & FBO for compute output
+    GLint computePosLoc; // attribute location for "aPos" fullscreen quad
+    GLint blitPosLoc;   // attribute location for "aPos" in blit quad
+
+    // Helper to init compute pipeline & resources
+    void init_compute();
+    // Call every frame to run the “compute shader”
+    void compute_pass(float time);
 
     // ----------------- FUNCTIONS
     void process_input();

@@ -66,6 +66,9 @@ int Engine::init(){
 
     init_textures();
 
+    //Simulated compute pipeline initialization
+    init_compute();
+
     // Setting the projection matrix
     projection = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f);
 
@@ -180,7 +183,7 @@ void Engine::render_loop(){
         eglSwapBuffers(eglDisplay, eglSurface);
 
         tracker.endFrame();
-        tracker.printStats();
+        //tracker.printStats();
     }
     
     // Cleanup
@@ -233,6 +236,11 @@ void Engine::draw(){
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        // ——— Run simulated compute shader ———
+        float t = (float)SDL_GetTicks() / 1000.0f;
+        compute_pass(t);
+
         glUseProgram(program);
         tracker.countShaderBind();
 
@@ -283,6 +291,158 @@ void Engine::draw(){
         tracker.endCpuRender();
 }
 
+// ——— Helper functions to load & compile GLSL ———————————————————
+static std::string readFile(const std::string& path) {
+    std::ifstream in(path);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+static GLuint compileShader(GLenum type, const std::string& src) {
+    GLuint shader = glCreateShader(type);
+    const char* cstr = src.c_str();
+    glShaderSource(shader, 1, &cstr, nullptr);
+    glCompileShader(shader);
+
+    // ——— Early exit on error ———
+    GLint ok = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        GLint len = 0;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
+        std::string log(len, '\0');
+        glGetShaderInfoLog(shader, len, nullptr, &log[0]);
+        std::cerr << "Shader compile error:\n" << log << std::endl;
+        glDeleteShader(shader);
+        return 0;
+    }
+    return shader;
+}
+
+static GLuint linkProgram(GLuint vs, GLuint fs) {
+    GLuint prog = glCreateProgram();
+    glAttachShader(prog, vs);
+    glAttachShader(prog, fs);
+    glLinkProgram(prog);
+
+    GLint ok = 0;
+    glGetProgramiv(prog, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        GLint len = 0;
+        glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &len);
+        std::string log(len, '\0');
+        glGetProgramInfoLog(prog, len, nullptr, &log[0]);
+        std::cerr << "Program link error:\n" << log << std::endl;
+        glDeleteProgram(prog);
+        return 0;
+    }
+    return prog;
+}
+
+
+// ——— Engine::init_compute ———————————————————————————————
+void Engine::init_compute() {
+    // 1) Load & compile shaders
+    std::string vsrc = readFile("shaders/compute.vert");
+    std::string fsrc = readFile("shaders/compute.frag");
+    GLuint vs = compileShader(GL_VERTEX_SHADER, vsrc);
+    GLuint fs = compileShader(GL_FRAGMENT_SHADER, fsrc);
+
+    computeProg = linkProgram(vs, fs);
+    computePosLoc = glGetAttribLocation(computeProg, "aPos");
+
+    const char* blitV = R"(
+        attribute vec2 aPos;
+        varying vec2 uv;
+        void main(){ uv=aPos*0.5+0.5; gl_Position=vec4(aPos,0,1); }
+    )";
+    const char* blitF = R"(
+        precision mediump float;
+        varying vec2 uv;
+        uniform sampler2D tex;
+        void main(){ gl_FragColor=texture2D(tex, uv); }
+    )";
+    GLuint vs2 = compileShader(GL_VERTEX_SHADER,   blitV);
+    GLuint fs2 = compileShader(GL_FRAGMENT_SHADER, blitF);
+    blitProg = linkProgram(vs2, fs2);
+    blitPosLoc = glGetAttribLocation(blitProg, "aPos");
+
+
+    // 2) Fullscreen quad setup
+    GLfloat quad[] = {
+        -1.f,-1.f,   +1.f,-1.f,  -1.f,+1.f,
+        +1.f,-1.f,   +1.f,+1.f,  -1.f,+1.f
+    };
+    glGenBuffers(1, &quadVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    // glGenVertexArrays(1, &quadVAO);
+    // glBindVertexArray(quadVAO);
+    // glEnableVertexAttribArray(0);
+    // glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    // glBindVertexArray(0);
+
+    // 3) Create float‐texture & FBO
+    glGenTextures(1, &compTex);
+    glBindTexture(GL_TEXTURE_2D, compTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIN_WIDTH, WIN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+    glGenFramebuffers(1, &compFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, compFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, compTex, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+// ——— Engine::compute_pass ———————————————————————————————
+void Engine::compute_pass(float time) {
+    // Bind FBO & run “compute” shader to texture
+    glBindFramebuffer(GL_FRAMEBUFFER, compFBO);
+    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+    glUseProgram(computeProg);
+
+    // Set uniforms
+    glUniform1f(glGetUniformLocation(computeProg, "uTime"), time);
+    glUniform2f(glGetUniformLocation(computeProg, "uResolution"),
+                (float)WIN_WIDTH, (float)WIN_HEIGHT);
+    // If your shader samples iChannel0, bind it here:
+    // glActiveTexture(GL_TEXTURE0);
+    // glBindTexture(GL_TEXTURE_2D, someInputTex);
+    // glUniform1i(glGetUniformLocation(computeProg, "iChannel0"), 0);
+
+    // Draw fullscreen quad
+    // glBindVertexArray(quadVAO);
+    // glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glEnableVertexAttribArray(computePosLoc);
+    glVertexAttribPointer(computePosLoc, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDisableVertexAttribArray(0);
+
+    // Unbind
+    //glBindVertexArray(0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Simple fullscreen‐blit into default framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+    glUseProgram(blitProg);                      // you’ll need to compile this in init_compute()
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, compTex);
+    glUniform1i(glGetUniformLocation(blitProg,"tex"), 0);
+
+    // draw quad again:
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glEnableVertexAttribArray(blitPosLoc);
+    glVertexAttribPointer(blitPosLoc, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glDrawArrays(GL_TRIANGLES,0,6);
+    glDisableVertexAttribArray(0);
+
+}
 
 
 int main(int argc, char * argv[]){
