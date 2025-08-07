@@ -309,7 +309,7 @@ void Engine::render_loop(){
         glfwPollEvents(); 
 
         tracker.endFrame();
-        //tracker.printStats();
+        tracker.printStats();
     }
 
     // Deletes all ImGUI instances
