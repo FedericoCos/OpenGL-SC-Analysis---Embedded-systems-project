@@ -183,7 +183,7 @@ void Engine::render_loop(){
         eglSwapBuffers(eglDisplay, eglSurface);
 
         tracker.endFrame();
-        //tracker.printStats();
+        tracker.printStats();
     }
     
     // Cleanup
