@@ -276,10 +276,20 @@ void Engine::draw(){
     wall_shader.setVector3("directionalLight.diffuse", diffuseLight);
     wall_shader.setVector3("directionalLight.specular", specularLight);
 
-    for(int i = 0; i < 6; i++){
+    wall_shader.setVector3("spotLight.position", cam ->position);
+    wall_shader.setVector3("spotLight.direction", cam -> front);
+    wall_shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+    wall_shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
+
+
+    wall_shader.setVector3("spotLight.ambient", ambientLight);
+    wall_shader.setVector3("spotLight.diffuse", diffuseLight);
+    wall_shader.setVector3("spotLight.specular", specularLight);
+
+    for(int i = 0; i < 5; i++){
         glm::mat4 model(1.0f);
-        model = glm::translate(model, wall_positions[i]);
-        model = glm::scale(model, wall_scale);
+        model = glm::translate(model, wall_scale_factor * wall_positions[i]);
+        model = glm::scale(model, wall_scale_factor * wall_scale);
         model = glm::rotate(model, glm::radians(wall_rotation[i].w), glm::vec3(wall_rotation[i]));
 
         wall_shader.setMatrix("model", model);
@@ -304,6 +314,36 @@ void Engine::draw(){
 
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     }
+
+
+    backpack_shader.use();
+    backpack_shader.setMatrix("projection", projection);
+    backpack_shader.setMatrix("view", view);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+    model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));	// it's a bit too big for our scene, so scale it down
+    backpack_shader.setMatrix("model", model);
+
+    backpack_shader.setVector3("spotLight.position", cam ->position);
+    backpack_shader.setVector3("spotLight.direction", cam -> front);
+    backpack_shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+    backpack_shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
+
+
+    backpack_shader.setVector3("spotLight.ambient", ambientLight);
+    backpack_shader.setVector3("spotLight.diffuse", diffuseLight);
+    backpack_shader.setVector3("spotLight.specular", specularLight);
+
+    backpack_shader.setInt("numLights", num_lights);
+    for(int i = 0; i < num_lights; i++){
+        backpack_shader.setVector3("lights[" + std::to_string(i) + "].position", light_positions[i]);
+        backpack_shader.setVector3("lights[" + std::to_string(i) + "].ambient", light_color[i]);
+        backpack_shader.setVector3("lights[" + std::to_string(i) + "].diffuse", light_color[i]);
+        backpack_shader.setVector3("lights[" + std::to_string(i) + "].specular", light_color[i]);
+    }
+
+    backpack_model.Draw(backpack_shader);
 
     glBindVertexArray(0);
 

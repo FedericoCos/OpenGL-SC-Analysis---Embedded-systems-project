@@ -40,22 +40,22 @@ private:
         0, 1, 2,
         0, 2, 3
     };
-    glm::vec3 wall_positions[6] = {
+    glm::vec3 wall_positions[5] = {
         {0.0f, 0.0f, -1.0f},  // Front
         {-1.0f, 0.0f,  0.0f}, // Left
         { 1.0f, 0.0f,  0.0f}, // Right
         {0.0f,  1.0f,  0.0f}, // Top
         {0.0f, -1.0f,  0.0f}, // Bottom
-        {0.0f, 0.0f,  1.0f}   // Back
+        // {0.0f, 0.0f,  1.0f}   // Back
     };
 
-    glm::vec4 wall_rotation[6] = {
+    glm::vec4 wall_rotation[5] = {
         {0.0f, 1.0f, 0.0f,   0.0f},   // Front → facing in
         {0.0f, 1.0f, 0.0f,  90.0f},   // Left → facing in
         {0.0f, 1.0f, 0.0f, -90.0f},   // Right → facing in
         {1.0f, 0.0f, 0.0f, 90.0f},   // Top → facing in
         {1.0f, 0.0f, 0.0f,  -90.0f},   // Bottom → facing in
-        {0.0f, 1.0f, 0.0f, 180.0f}    // Back → facing in
+        // {0.0f, 1.0f, 0.0f, 180.0f}    // Back → facing in
     };
 
     float wall_scale_factor = 10.f;
@@ -131,10 +131,10 @@ private:
 
     glm::vec3 light_scale = {.2f, .2f, .2f};
 
-    int num_lights = 6;
+    int num_lights = 3;
 
-    float min_light_dis = 10.f;
-    float max_light_dis = 20.f;
+    float min_light_dis = 3.f;
+    float max_light_dis = 7.f;
 
     unsigned int lightVAO;
     unsigned int lightVBO;
