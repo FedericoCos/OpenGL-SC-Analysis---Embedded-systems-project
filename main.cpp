@@ -10,37 +10,59 @@ void Engine::framebuffer_size_callback(GLFWwindow* window, int w, int h){
 
 int Engine::init(){
     // INIZIALIZZAZIONE FINESTRA
-
-    // GLFW initialization
-    glfwInit();
-    // First specify version of OpenGL
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // first argument is what we want to configure
-                                                   // second is the value for that option
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // load open gl functions with no back compatibility
-
-    window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "OpenGL", NULL, NULL);
-    if(window == NULL){
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    glfwMakeContextCurrent(window);
-
-    // GLAD initialization
-    /**
-     * GLAD contains alla the fucntions not available in system OpenGL Library
-     */
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
-        std::cout << "Failed to initialize GLAD" << std::endl;
+    if (SDL_Init(SDL_INIT_VIDEO) < 0){
+        std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         return -1;
     }
 
-    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT); // lower-left corner of the window, and dimension
-    width = WIN_WIDTH;
-    height = WIN_HEIGHT;
-    glfwSetFramebufferSizeCallback(window, Engine::framebuffer_size_callback);
+    window = SDL_CreateWindow("CUBES ES", 0, 0, WIN_WIDTH, WIN_HEIGHT,
+    fullscreen ? (SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN) : SDL_WINDOW_OPENGL);
 
+    // Initialize EGL
+    eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    eglInitialize(eglDisplay, nullptr, nullptr);
+
+    // Configure EGL
+    const EGLint configAttributes[] = {
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, // Request GLES 2.0
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_ALPHA_SIZE, 8,
+        EGL_DEPTH_SIZE, 16,
+        EGL_BUFFER_SIZE, 16,
+        EGL_STENCIL_SIZE,   0,
+        EGL_NONE
+    };
+
+    EGLConfig eglConfig;
+    EGLint numConfig;
+    eglChooseConfig(eglDisplay, configAttributes, &eglConfig, 1, &numConfig);
+
+    SDL_SysWMinfo sysInfo;
+    SDL_VERSION(&sysInfo.version); // Set SDL version
+    SDL_GetWindowWMInfo(window, &sysInfo);
+    // The native window handle is platform-specific
+    EGLNativeWindowType nativeWindow = (EGLNativeWindowType)sysInfo.info.x11.window;
+
+    eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, nativeWindow, NULL);
+
+    // Create EGL Context
+    const EGLint contextAttributes[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE
+    };
+
+    eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, contextAttributes);
+
+    // Make the Context Current
+    eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+    
+    glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+
+    glClearDepthf(1.0f);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
 
     stbi_set_flip_vertically_on_load(true);
     is_imgui = false;
@@ -55,48 +77,45 @@ int Engine::init(){
     init_shadow_resources();
 
     // To disable vsync
-    glfwSwapInterval(0);
+    eglSwapInterval(eglDisplay, 0);
 
     return 0;
 }
 
-void Engine::process_input(){
-    // Refreshing the input
-    right_input.x = 0;
-    right_input.y = 0;
-    left_input.x = 0;
-    left_input.y = 0;
-
-    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
-        glfwSetWindowShouldClose(window, true);
+void Engine::process_input() {
+    // Process all SDL events first
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            running = false;
+            return;
+        }
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+            running = false;
+            return;
+        }
     }
 
-    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
-        right_input.x = 1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
-        right_input.x = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
-        right_input.y = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
-        right_input.y = 1;
-    }
+    // Get the current keyboard state
+    const Uint8* state = SDL_GetKeyboardState(NULL);
 
-    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS){
-        left_input.x = 1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS){
-        left_input.x = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS){
-        left_input.y = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS){
-        left_input.y = 1;
-    }
-    
+    // Reset inputs
+    right_input = {0.f, 0.f};
+    left_input  = {0.f, 0.f};
+
+    // --- Right hand (WASD) ---
+    if (state[SDL_SCANCODE_W]) right_input.x = 1.f;
+    if (state[SDL_SCANCODE_S]) right_input.x = -1.f;
+    if (state[SDL_SCANCODE_A]) right_input.y = -1.f;
+    if (state[SDL_SCANCODE_D]) right_input.y =  1.f;
+
+    // --- Left hand (Arrow keys) ---
+    if (state[SDL_SCANCODE_UP])    left_input.x = 1.f;
+    if (state[SDL_SCANCODE_DOWN])  left_input.x = -1.f;
+    if (state[SDL_SCANCODE_LEFT])  left_input.y = -1.f;
+    if (state[SDL_SCANCODE_RIGHT]) left_input.y =  1.f;
+
+    // Update camera or game logic with smoothed input
+    cam -> update(right_input, left_input, dtime);
 }
 
 void Engine::init_scene_objects(){
@@ -154,16 +173,14 @@ void Engine::init_shadow_resources(){
                 SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-    glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
+    /* glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE); */
     glBindFramebuffer(GL_FRAMEBUFFER, 0);  
     std::cout << "Shadow resources Initiliazed!" << std::endl;
 }
@@ -192,21 +209,13 @@ void Engine::init_light_resources(){
 }
 
 void Engine::render_loop(){
-    glfwWindowHint(GLFW_DEPTH_BITS, 24);
-    glEnable(GL_DEPTH_TEST);
-
     projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
-
-    while(!glfwWindowShouldClose(window))
+    while(running)
     {
-        glfwGetWindowSize(window, &width, &height);
-
-
-        float t = (float)glfwGetTime();
+        float t = (float)SDL_GetTicks() / 1000.f;
         dtime = t - past_time;
         past_time = t;
         process_input();
-        cam -> update(right_input, left_input, dtime);
 
         // First, let's set the spotligt
         light_projection = glm::perspective(glm::radians(2 * fov), 1.f, 0.1f, 50.f);
@@ -225,11 +234,16 @@ void Engine::render_loop(){
 
         draw();
 
-        glfwSwapBuffers(window);
-        glfwPollEvents(); 
+        eglSwapBuffers(eglDisplay, eglSurface);
     }
 
-    glfwTerminate();
+
+    eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglDestroyContext(eglDisplay, eglContext);
+    eglDestroySurface(eglDisplay, eglSurface);
+    eglTerminate(eglDisplay);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 }
 
 void Engine::shadow_pass(){
@@ -266,7 +280,6 @@ void Engine::shadow_pass(){
 
     backpack_model.Draw(simpleDepthShader, false);
 
-    glBindVertexArray(0);
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);  
@@ -337,7 +350,6 @@ void Engine::draw(){
     backpack_model.set_lights(backpack_shader, ambientLight, pointLights, spotLights);
     backpack_model.Draw(backpack_shader, true, depthMap);
 
-    glBindVertexArray(0);
 }
 
 

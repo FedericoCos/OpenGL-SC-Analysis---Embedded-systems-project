@@ -60,11 +60,9 @@ void Cube::init(glm::vec3& pos, glm::vec3& scale, glm::vec4& rot){
         22,23,20
     };
 
-    glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
-    glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
@@ -88,7 +86,8 @@ void Cube::draw(){
         update_model_mat();
     }
 
-    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
     shader.setMatrix("model", model_matrix);
 
@@ -111,7 +110,8 @@ void Cube::draw(Shader& s){
         update_model_mat();
     }
 
-    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
     s.setMatrix("model", model_matrix);
 

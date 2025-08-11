@@ -46,7 +46,6 @@ protected:
     bool is_static; // whether the model matrix changes between frames or not
 
 
-    unsigned int VAO;
     unsigned int VBO;
     unsigned int EBO;
     Shader shader;

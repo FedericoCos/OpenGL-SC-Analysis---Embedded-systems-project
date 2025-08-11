@@ -4,6 +4,16 @@
 #include "shader.h"
 #include "camera.h"
 
+#include <GLES2/gl2.h>
+#include <EGL/egl.h>
+
+// EGL
+#include <EGL/eglext.h>
+
+// SDL2
+#include <SDL2/SDL.h> // For Events
+#include <SDL2/SDL_syswm.h>
+
 
 #include "perfTracker.h"
 #include "model.h"
@@ -31,11 +41,20 @@ public:
     void render_loop();
 
 private:
-    GLFWwindow * window;
+    SDL_Window * window;
     float past_time = 0;
     float dtime;
     PerfTracker tracker;
     bool is_imgui = true;
+    bool running = true;
+
+    bool fullscreen = false;
+
+    EGLDisplay eglDisplay;
+    EGLSurface eglSurface;
+    EGLContext eglContext;
+
+    SDL_Event event;
 
     // CAMERA VARIABLES
     Camera * cam;

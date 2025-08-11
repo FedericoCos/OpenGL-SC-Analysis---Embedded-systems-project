@@ -9,11 +9,9 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std:
 }
 
 void Mesh::setupMesh(){
-    glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
-    glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
@@ -31,12 +29,12 @@ void Mesh::setupMesh(){
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,sizeof(Vertex), (void *)offsetof(Vertex, texCoords));
 
-    glBindVertexArray(0);
 }
 
 
 void Mesh::Draw(Shader &shader, bool use_text, unsigned int shadowID){
-    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     unsigned int diffuseNr = 1;
     unsigned int specularNr = 1;
     if(use_text){
@@ -62,5 +60,4 @@ void Mesh::Draw(Shader &shader, bool use_text, unsigned int shadowID){
 
     // draw mesh
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
 }
