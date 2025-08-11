@@ -1,16 +1,19 @@
-#version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aNormal;
+#version 100
+// GLSL for OpenGL ES 2.0
+
+// Vertex attributes (inputs)
+attribute vec3 aPos;
+attribute vec3 aNormal;
 
 uniform mat4 view;
 uniform mat4 projection;
 uniform mat4 model;
-
 uniform vec4 color;
 
-out vec4 Color;
+varying vec4 Color;
 
-void main(){
+void main()
+{
     gl_Position = projection * view * model * vec4(aPos, 1.0);
     Color = color;
 }

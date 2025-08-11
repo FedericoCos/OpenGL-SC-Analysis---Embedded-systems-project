@@ -16,7 +16,7 @@ struct Light{
     vec3 position;
     vec4 color; // w = strength, xyz = RGB
 };
-uniform Light pointLights[MAX_LIGHTS];
+uniform Light pointLights[10];
 uniform int pointLights_num;
 
 struct DirectionalLight{
@@ -34,7 +34,7 @@ struct SpotLight{
     float outerCutOff;
     vec4 color; // w = strength, xyz = RGB
 };
-uniform SpotLight spotLights[1];
+uniform SpotLight spotLights[2];
 
 uniform vec3 viewPos;
 

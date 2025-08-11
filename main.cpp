@@ -162,27 +162,43 @@ void Engine::init_scene_objects(){
 }
 
 void Engine::init_shadow_resources(){
-    std::cout << "Initializing shdow resources..." << std::endl;
+    std::cout << "Initializing shadow resources..." << std::endl;
     simpleDepthShader = Shader("shaders/vertex_shadow.glsl", "shaders/fragment_shadow.glsl");
 
     glGenFramebuffers(1, &depthMapFBO);
 
     glGenTextures(1, &depthMap);
     glBindTexture(GL_TEXTURE_2D, depthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
-                SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    // --- FIX: Use GLES 2.0 compatible formats for depth texture ---
+    // GL_DEPTH_COMPONENT16 is a guaranteed core format in GLES 2.0
+    // The type should be UNSIGNED_SHORT to match.
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+                 SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, NULL);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // Use GL_CLAMP_TO_EDGE for shadow maps to avoid artifacts at the edges
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-    /* glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE); */
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
-    std::cout << "Shadow resources Initiliazed!" << std::endl;
+
+    // --- FIX: Remove desktop-only GL calls ---
+    // glDrawBuffer and glReadBuffer are not in GLES 2.0.
+    // The behavior is implicit when only a depth buffer is attached.
+    /* glDrawBuffer(GL_NONE); */
+    /* glReadBuffer(GL_NONE); */
+
+    // Check if the framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    std::cout << "Shadow resources Initialized!" << std::endl;
 }
 
 void Engine::init_light_resources(){
@@ -209,7 +225,7 @@ void Engine::init_light_resources(){
 }
 
 void Engine::render_loop(){
-    projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
+    projection = glm::perspective(glm::radians(fov), WIN_WIDTH * 1.f/WIN_HEIGHT, near_plane, far_plane);
     while(running)
     {
         float t = (float)SDL_GetTicks() / 1000.f;
@@ -228,7 +244,7 @@ void Engine::render_loop(){
         shadow_pass();
         glCullFace(GL_BACK);
 
-        glViewport(0, 0, width, height);
+        glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -287,20 +303,24 @@ void Engine::shadow_pass(){
 
 void Engine::draw(){
     glm::mat4 view = cam -> viewAtMat();
-    glm::vec3 spotPos = cam -> getLightPos();
+    // This was missing, but needed for the spotlight
+    // glm::vec3 spotPos = cam -> getLightPos();
 
-    Shader current_shader;
+    // --- FIX: Use a reference to the shader to avoid copying ---
+    // This is more efficient and safer.
+    // Shader& current_shader = walls[0].getShader(); // Example, will be set in loop
 
     // RENDERING WALLS
     for(size_t i = 0; i < WALLS; i++){
-        // First extract shader
-        current_shader = walls[i].getShader();
+        // Get a reference to the wall's shader
+        Shader& current_shader = walls[i].getShader();
         current_shader.use();
 
         // Bind texture for shadows
         glActiveTexture(GL_TEXTURE0);
-        current_shader.setInt("shadowMap", 0);
         glBindTexture(GL_TEXTURE_2D, depthMap);
+        current_shader.setInt("shadowMap", 0);
+
 
         current_shader.setMatrix("lightSpaceMatrix", light_space_matrix);
 
@@ -312,19 +332,14 @@ void Engine::draw(){
         current_shader.setVec3("viewPos", cam->position);
         walls[i].set_lights(ambientLight, pointLights, spotLights);
 
-        // Draw call
+        // The draw call itself now handles binding and vertex attributes
         walls[i].draw();
     }
 
     // RENDERING LIGHTS CUBE
     for(size_t i = 0; i < num_lights; i++){
-        current_shader = cubes[i].getShader();
+        Shader& current_shader = cubes[i].getShader();
         current_shader.use();
-
-        // Bind texture for shadows
-        glActiveTexture(GL_TEXTURE0);
-        current_shader.setInt("shadowMap", 0);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
 
         // VP matrix
         current_shader.setMatrix("view", view);
@@ -341,15 +356,15 @@ void Engine::draw(){
     backpack_shader.setMatrix("view", view);
 
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-    model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));	// it's a bit too big for our scene, so scale it down
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+    model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));
     backpack_shader.setMatrix("model", model);
 
     backpack_shader.setMatrix("lightSpaceMatrix", light_space_matrix);
+    backpack_shader.setVec3("viewPos", cam->position); // The model shader also needs the view position
 
     backpack_model.set_lights(backpack_shader, ambientLight, pointLights, spotLights);
     backpack_model.Draw(backpack_shader, true, depthMap);
-
 }
 
 

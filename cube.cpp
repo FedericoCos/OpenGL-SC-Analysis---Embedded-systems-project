@@ -67,10 +67,8 @@ void Cube::init(glm::vec3& pos, glm::vec3& scale, glm::vec4& rot){
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    posLoc = glGetAttribLocation(shader.ID, "aPos");
+    normLoc = glGetAttribLocation(shader.ID, "aNormal");
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
@@ -88,6 +86,14 @@ void Cube::draw(){
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+    // vertex position
+    glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void *)0);
+    glEnableVertexAttribArray(posLoc);
+
+    // vertex normal
+    glVertexAttribPointer(normLoc, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+    glEnableVertexAttribArray(normLoc);
 
     shader.setMatrix("model", model_matrix);
 
@@ -112,6 +118,14 @@ void Cube::draw(Shader& s){
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+    // vertex position
+    glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 6*sizeof(float), (void *)0);
+    glEnableVertexAttribArray(posLoc);
+
+    // vertex normal
+    glVertexAttribPointer(normLoc, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3 * sizeof(float)));
+    glEnableVertexAttribArray(normLoc);
 
     s.setMatrix("model", model_matrix);
 

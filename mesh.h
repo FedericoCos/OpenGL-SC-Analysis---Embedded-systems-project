@@ -38,7 +38,10 @@ public:
 
 private:
 
-    unsigned int VAO, VBO, EBO;
+    unsigned int VBO, EBO;
+    GLint posLoc;
+    GLint normLoc;
+    GLint textLoc;
 
     void setupMesh();
 

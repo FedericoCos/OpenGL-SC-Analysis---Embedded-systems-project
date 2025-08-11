@@ -48,6 +48,9 @@ protected:
 
     unsigned int VBO;
     unsigned int EBO;
+    GLint posLoc;
+    GLint normLoc;
+    GLint colorLoc;
     Shader shader;
 
 
