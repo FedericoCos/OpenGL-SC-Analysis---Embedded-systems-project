@@ -22,7 +22,7 @@ void Mesh::setupMesh(){
 }
 
 
-void Mesh::Draw(Shader &shader, bool use_text, unsigned int shadowID){
+int Mesh::Draw(Shader &shader, bool use_text, unsigned int shadowID){
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 
@@ -64,4 +64,5 @@ void Mesh::Draw(Shader &shader, bool use_text, unsigned int shadowID){
 
     // draw mesh
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+    return indices.size() / 3;
 }

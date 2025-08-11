@@ -16,7 +16,7 @@ struct Light{
     vec3 position;
     vec4 color; // w = strength, xyz = RGB
 };
-uniform Light pointLights[10];
+uniform Light pointLights[MAX_LIGHTS];
 uniform int pointLights_num;
 
 struct DirectionalLight{
@@ -77,7 +77,7 @@ void main()
                 * directionalLight.specular.xyz * specularVec; */
 
     // ----- Point Lights -----
-    for (int i = 0; i < pointLights_num; i++) {
+    for (int i = 0; i < MAX_LIGHTS && pointLights[i].color.w != 0.0; i++) {
         float distance = length(pointLights[i].position - FragPos);
         float attenuation = 1.0 / (1.0 +
                                    0.07 * distance +

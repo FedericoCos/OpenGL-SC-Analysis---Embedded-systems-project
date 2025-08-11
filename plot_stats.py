@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import argparse
 import sys
 
-def plot_statistics(csv_path: str, save_plots: bool = False):
+def plot_statistics(csv_path: str):
     try:
         # Read the CSV data into a pandas DataFrame
         df = pd.read_csv(csv_path)
@@ -17,8 +17,13 @@ def plot_statistics(csv_path: str, save_plots: bool = False):
         
     df = df[:10000]
 
+    # Create new aggregated columns from the new tracker data
+    df['DrawCalls'] = df['WallsDC'] + df['PointsDC'] + df['ModelDC'] + df['ShadowDC']
+    df['Triangles'] = df['WallsTris'] + df['PointsTris'] + df['ModelTris']
+
     frame_axis = df.index
 
+    # --- Plot 1: FPS ---
     fig1, ax1 = plt.subplots(figsize=(12, 6))
     ax1.plot(frame_axis, df['FPS'], label='FPS', color='green')
     ax1.set_title('Frames Per Second (FPS) Over Time')
@@ -27,13 +32,13 @@ def plot_statistics(csv_path: str, save_plots: bool = False):
     ax1.legend()
     ax1.grid(True, linestyle='--', alpha=0.6)
 
-    if save_plots:
-        plt.savefig('plot_fps.png', dpi=300, bbox_inches='tight')
+    plt.savefig('plot_fps.png', dpi=300, bbox_inches='tight')
 
+    # --- Plot 2: Frame Timings ---
     fig2, ax2 = plt.subplots(figsize=(12, 6))
-    ax2.plot(frame_axis, df['FrameTime(ms)'], label='Total Frame Time (ms)', color='red')
-    ax2.plot(frame_axis, df['AvgFrame(ms)'], label='Avg Frame Time (ms)', color='orange', linestyle='--')
-    ax2.plot(frame_axis, df['CPUTime(ms)'], label='CPU Render Time (ms)', color='blue', alpha=0.8)
+    ax2.plot(frame_axis, df['Frame(ms)'], label='Total Frame Time (ms)', color='red')
+    ax2.plot(frame_axis, df['Avg(ms)'], label='Avg Frame Time (ms)', color='orange', linestyle='--')
+    ax2.plot(frame_axis, df['CPU(ms)'], label='CPU Render Time (ms)', color='blue', alpha=0.8)
     ax2.plot(frame_axis, df['GPUWait(ms)'], label='GPU Wait Time (ms)', color='purple', alpha=0.8)
     ax2.set_title('Frame Timing Analysis')
     ax2.set_xlabel('Frame Number')
@@ -41,9 +46,9 @@ def plot_statistics(csv_path: str, save_plots: bool = False):
     ax2.legend()
     ax2.grid(True, linestyle='--', alpha=0.6)
 
-    if save_plots:
-        plt.savefig('plot_timings.png', dpi=300, bbox_inches='tight')
+    plt.savefig('plot_timings.png', dpi=300, bbox_inches='tight')
         
+    # --- Plot 3: Draw Calls and Triangles ---
     fig3, ax3 = plt.subplots(figsize=(12, 6))
     ax3_twin = ax3.twinx() # Create a second y-axis
 
@@ -61,8 +66,7 @@ def plot_statistics(csv_path: str, save_plots: bool = False):
     ax3_twin.legend(lines + lines2, labels + labels2, loc='upper left')
     ax3.grid(True, linestyle='--', alpha=0.3)
 
-    if save_plots:
-        plt.savefig('plot_calls_tris.png', dpi=300, bbox_inches='tight')
+    plt.savefig('plot_calls_tris.png', dpi=300, bbox_inches='tight')
 
     # --- Plot 4: Memory Usage ---
     fig4, ax4 = plt.subplots(figsize=(12, 6))
@@ -81,15 +85,12 @@ def plot_statistics(csv_path: str, save_plots: bool = False):
     ax4_twin.legend(lines + lines2, labels + labels2, loc='upper left')
     ax4.grid(True, linestyle='--', alpha=0.3)
 
-    if save_plots:
-        plt.savefig('plot_memory.png', dpi=300, bbox_inches='tight')
+    plt.savefig('plot_memory.png', dpi=300, bbox_inches='tight')
 
     # --- Show all plots ---
-    if not save_plots:
-        plt.tight_layout()
-        plt.show()
-    else:
-        print("All plots saved as PNG files in the current directory.")
+    plt.tight_layout()
+    plt.show()
+    print("All plots saved as PNG files in the current directory.")
 
 
 if __name__ == '__main__':
@@ -111,4 +112,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Run the main function
-    plot_statistics(args.csv_path, args.save)
+    plot_statistics(args.csv_path)

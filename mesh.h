@@ -34,7 +34,7 @@ public:
     std::vector<Texture> textures;
 
     Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
-    void Draw(Shader &shader, bool use_text = false, unsigned int shadowID = 0);
+    int Draw(Shader &shader, bool use_text = false, unsigned int shadowID = 0);
 
 private:
 
