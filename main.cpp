@@ -1,3 +1,4 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include "main.h"
 
 int Engine::init(){
@@ -7,7 +8,7 @@ int Engine::init(){
         return -1;
     }
 
-    window = SDL_CreateWindow("CUBES ES", 0, 0, WIN_WIDTH, WIN_HEIGHT,
+    window = SDL_CreateWindow("COMPUTE SHADER ES", 0, 0, WIN_WIDTH, WIN_HEIGHT,
     fullscreen ? (SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN) : SDL_WINDOW_OPENGL);
 
     // Initialize EGL
@@ -52,92 +53,16 @@ int Engine::init(){
     
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
 
-    glClearDepthf(1.0f);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-
     tracker.init();
-
-    init_cubes();
-    init_camera();
-
-    init_shaders();
-    init_buffers();
 
     init_textures();
 
     //Simulated compute pipeline initialization
     init_compute();
 
-    // Setting the projection matrix
-    projection = glm::perspective(glm::radians(45.f), 800.f/600.f, 0.1f, 100.f);
-
     eglSwapInterval(eglDisplay, 0);
 
     return 0;
-}
-
-void Engine::init_buffers(){
-    // Vertex buffer object for cubes
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW);
-    tracker.trackVramAllocation(sizeof(cube));
-
-    // vertex position
-    glVertexAttribPointer(posLoc, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void *)0);
-    glEnableVertexAttribArray(posLoc);
-
-    // vertex color
-    glVertexAttribPointer(colorLoc, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(3*sizeof(float)));
-    glEnableVertexAttribArray(colorLoc);
-
-    // vertex texture
-    glVertexAttribPointer(textureLoc, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(6 * sizeof(float)));
-    glEnableVertexAttribArray(textureLoc);
-
-    // cubes indices
-    glGenBuffers(1, &ibo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
-    tracker.trackVramAllocation(sizeof(cube_indices));
-
-}
-
-void Engine::init_camera(){
-    glm::vec3 pos(0.f, 0.f, 3.f);
-    glm::vec3 tar(0.f, 0.f, -1.f);
-    cam = Camera(pos, tar, 30.f, 2.5f);
-}
-
-void Engine::init_shaders(){
-    program = Shader::loadOrCreateProgram("my_shader.bin", vertexShaderSource, fragmentShaderSource);
-
-    // Getting the locations of uniforms and attributes in the shader
-    posLoc = glGetAttribLocation(program, "vPosition");
-    colorLoc = glGetAttribLocation(program, "vColor");
-    rotAxLoc = glGetUniformLocation(program, "rotAxis");
-    modelLoc = glGetUniformLocation(program, "model");
-    viewLoc = glGetUniformLocation(program, "view");
-    projectionLoc = glGetUniformLocation(program, "projection");
-    timeLoc = glGetUniformLocation(program, "time");
-    textureLoc = glGetAttribLocation(program, "vTex");
-    text1Loc = glGetUniformLocation(program, "texture1");
-    text2Loc = glGetUniformLocation(program, "texture2");
-}
-
-void Engine::init_cubes(){
-    tr.resize(CUBES);
-    sc.resize(CUBES);
-    rot.resize(CUBES);
-    trans.resize(CUBES);
-
-    // Random variables for cubes
-    for(int i = 0; i < CUBES; i++){
-        tr[i] = std::max((rand() % 1000 * 0.1f), 0.5f) * glm::normalize(glm::vec3(rand() % 10 - 5, rand() % 10 - 5, rand() % 10 - 5));
-        sc[i] = glm::vec3(std::max(rand() % 10 * 0.1f, 0.1f));
-        rot[i] = glm::normalize(glm::vec3(std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f)));
-    }
 }
 
 void Engine::init_textures(){
@@ -148,22 +73,21 @@ void Engine::init_textures(){
         std::cout << "Failed to load texture" << std::endl;
         exit(0);
     }
+    wallW = width; wallH = height; wallBpp = (nrChannels == 4 ? 4 : 3);
 
-    glGenTextures(2, texture);
-    glBindTexture(GL_TEXTURE_2D, texture[0]);
+    glGenTextures(1, &wallTex);
+    glBindTexture(GL_TEXTURE_2D, wallTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     tracker.countTextureBind();
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    tracker.trackVramAllocation(size_t(width) * size_t(height) * 3);
+    tracker.trackDataUpload(size_t(width) * size_t(height) * 3);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     stbi_image_free(data);
-
-    glBindTexture(GL_TEXTURE_2D, texture[1]);
-    tracker.countTextureBind();
-    data = stbi_load("textures/awesomeface.png", &width, &height, &nrChannels, 0);
-    if(data){
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
 }
 
 void Engine::render_loop(){
@@ -178,7 +102,10 @@ void Engine::render_loop(){
 
         process_input();
 
-        draw();
+        float t = (float)SDL_GetTicks() / 1000.f;
+        tracker.beginCpuRender();
+        compute_pass(t);
+        tracker.endCpuRender();
 
         eglSwapBuffers(eglDisplay, eglSurface);
 
@@ -187,6 +114,34 @@ void Engine::render_loop(){
     }
     
     // Cleanup
+    // Delete programs
+    if (computeProg) { glDeleteProgram(computeProg); computeProg = 0; }
+    if (blitProg)    { glDeleteProgram(blitProg);    blitProg    = 0; }
+
+    // Delete fullscreen quad VBO
+    if (quadVBO) {
+        glDeleteBuffers(1, &quadVBO);
+        quadVBO = 0;
+        // 6 triangles verts * 2 components (x,y) * sizeof(GLfloat)
+        tracker.trackVramDeallocation(size_t(6) * size_t(2) * sizeof(GLfloat));
+    }
+
+    // Delete compute output texture + FBO
+    if (compFBO) { glDeleteFramebuffers(1, &compFBO); compFBO = 0; }
+    if (compTex) {
+        glDeleteTextures(1, &compTex);
+        compTex = 0;
+        // RGBA8 (4 bytes per pixel) * framebuffer size
+        tracker.trackVramDeallocation(size_t(WIN_WIDTH) * size_t(WIN_HEIGHT) * 4);
+    }
+
+    // Delete wall texture (if created)
+    if ( wallTex) {
+        glDeleteTextures(1, & wallTex);
+         wallTex = 0;
+        tracker.trackVramDeallocation(size_t(wallW) * size_t(wallH) * 3);
+    }
+
     eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroyContext(eglDisplay, eglContext);
     eglDestroySurface(eglDisplay, eglSurface);
@@ -208,90 +163,9 @@ void Engine::process_input() {
         }
     }
 
-    // Get the current keyboard state
-    const Uint8* state = SDL_GetKeyboardState(NULL);
-
-    // Reset inputs
-    right_input = {0.f, 0.f};
-    left_input  = {0.f, 0.f};
-
-    // --- Right hand (WASD) ---
-    if (state[SDL_SCANCODE_W]) right_input.x = 1.f;
-    if (state[SDL_SCANCODE_S]) right_input.x = -1.f;
-    if (state[SDL_SCANCODE_A]) right_input.y = -1.f;
-    if (state[SDL_SCANCODE_D]) right_input.y =  1.f;
-
-    // --- Left hand (Arrow keys) ---
-    if (state[SDL_SCANCODE_UP])    left_input.x = 1.f;
-    if (state[SDL_SCANCODE_DOWN])  left_input.x = -1.f;
-    if (state[SDL_SCANCODE_LEFT])  left_input.y = -1.f;
-    if (state[SDL_SCANCODE_RIGHT]) left_input.y =  1.f;
-
-    // Update camera or game logic with smoothed input
-    cam.update(right_input, left_input, dtime);
 }
 
-void Engine::draw(){
-        tracker.beginCpuRender();
-
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        // ——— Run simulated compute shader ———
-        float t = (float)SDL_GetTicks() / 1000.0f;
-        compute_pass(t);
-
-        glUseProgram(program);
-        tracker.countShaderBind();
-
-        // --- RENDER ---
-
-        // Position attribute
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        
-        // Index buffer
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-
-        // Set uniforms common to all cubes
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(cam.viewAtMat()));
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-        // Texture binding
-        glUniform1i(text1Loc, 0);
-        glUniform1i(text2Loc, 1);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture[0]);
-        tracker.countTextureBind();
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture[1]);
-        tracker.countTextureBind();
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-
-        float r = (float)SDL_GetTicks() / 1000.f; // for rotation
-        glUniform1f(timeLoc, r);
-
-        for (int i = 0; i < cubes; i++) {
-            trans[i] = glm::mat4(1.0f);
-            trans[i] = glm::scale(trans[i], sc[i]);
-            trans[i] = glm::translate(trans[i], tr[i]);
-
-            glUniform3fv(rotAxLoc, 1, glm::value_ptr(rot[i]));
-
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(trans[i]));
-
-            // Draw the cube
-            tracker.countDrawCall();
-            tracker.countTriangles(12);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, 0);
-        }
-
-        tracker.endCpuRender();
-}
-
-// ——— Helper functions to load & compile GLSL ———————————————————
+// Helper functions to load & compile GLSL
 static std::string readFile(const std::string& path) {
     std::ifstream in(path);
     std::ostringstream ss;
@@ -305,7 +179,7 @@ static GLuint compileShader(GLenum type, const std::string& src) {
     glShaderSource(shader, 1, &cstr, nullptr);
     glCompileShader(shader);
 
-    // ——— Early exit on error ———
+    // Early exit on error
     GLint ok = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
     if (!ok) {
@@ -341,7 +215,7 @@ static GLuint linkProgram(GLuint vs, GLuint fs) {
 }
 
 
-// ——— Engine::init_compute ———————————————————————————————
+// Engine::init_compute
 void Engine::init_compute() {
     // 1) Load & compile shaders
     std::string vsrc = readFile("shaders/compute.vert");
@@ -377,62 +251,66 @@ void Engine::init_compute() {
     glGenBuffers(1, &quadVBO);
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
-    // glGenVertexArrays(1, &quadVAO);
-    // glBindVertexArray(quadVAO);
-    // glEnableVertexAttribArray(0);
-    // glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    // glBindVertexArray(0);
+    tracker.trackVramAllocation(sizeof(quad));
+    tracker.trackDataUpload(sizeof(quad));
 
     // 3) Create float‐texture & FBO
     glGenTextures(1, &compTex);
     glBindTexture(GL_TEXTURE_2D, compTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIN_WIDTH, WIN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    tracker.trackVramAllocation(size_t(WIN_WIDTH) * size_t(WIN_HEIGHT) * 4);
 
     glGenFramebuffers(1, &compFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, compFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_2D, compTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, compTex, 0); 
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "compFBO incomplete\n"; exit(1);
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 }
 
-// ——— Engine::compute_pass ———————————————————————————————
+// Engine::compute_pass
 void Engine::compute_pass(float time) {
     // Bind FBO & run “compute” shader to texture
     glBindFramebuffer(GL_FRAMEBUFFER, compFBO);
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(computeProg);
+    tracker.countShaderBind();
 
     // Set uniforms
     glUniform1f(glGetUniformLocation(computeProg, "uTime"), time);
     glUniform2f(glGetUniformLocation(computeProg, "uResolution"),
                 (float)WIN_WIDTH, (float)WIN_HEIGHT);
-    // If your shader samples iChannel0, bind it here:
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, someInputTex);
-    // glUniform1i(glGetUniformLocation(computeProg, "iChannel0"), 0);
-
-    // Draw fullscreen quad
-    // glBindVertexArray(quadVAO);
-    // glDrawArrays(GL_TRIANGLES, 0, 6);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,  wallTex);
+    tracker.countTextureBind();
+    GLint ch0 = glGetUniformLocation(computeProg, "iChannel0");
+    if ( ch0 >= 0 ) glUniform1i(ch0, 0);
 
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glEnableVertexAttribArray(computePosLoc);
     glVertexAttribPointer(computePosLoc, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glDrawArrays(GL_TRIANGLES, 0, 6);
-    glDisableVertexAttribArray(0);
-
-    // Unbind
-    //glBindVertexArray(0);
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    tracker.countDrawCall();
+    tracker.countTriangles(2);
+    glDisableVertexAttribArray(computePosLoc);
 
     // Simple fullscreen‐blit into default framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
-    glUseProgram(blitProg);                      // you’ll need to compile this in init_compute()
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(blitProg);
+    tracker.countShaderBind();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, compTex);
+    tracker.countTextureBind();
     glUniform1i(glGetUniformLocation(blitProg,"tex"), 0);
 
     // draw quad again:
@@ -440,15 +318,15 @@ void Engine::compute_pass(float time) {
     glEnableVertexAttribArray(blitPosLoc);
     glVertexAttribPointer(blitPosLoc, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glDrawArrays(GL_TRIANGLES,0,6);
-    glDisableVertexAttribArray(0);
+    tracker.countDrawCall();
+    tracker.countTriangles(2);
+    glDisableVertexAttribArray(blitPosLoc);
 
 }
 
 
 int main(int argc, char * argv[]){
     Engine engine;
-    if(argc > 1)
-        engine.set_cubes_num(std::stoi(argv[1]));
 
     if(engine.init()){
         return -1;
