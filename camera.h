@@ -33,4 +33,8 @@ public:
 
     void update(glm::vec2&, glm::vec2&, float&);
 
+    glm::vec3 getLightPos(){
+        return position - glm::normalize(up);
+    };
+
 };

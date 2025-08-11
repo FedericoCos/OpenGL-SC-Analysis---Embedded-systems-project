@@ -2,9 +2,25 @@
 
 
 
-void Model::Draw(Shader &shader){
+void Model::Draw(Shader &shader, bool use_text, unsigned int shadowID){
     for(unsigned int i = 0; i < meshes.size(); i++){
-        meshes[i].Draw(shader);
+        meshes[i].Draw(shader, use_text, shadowID);
+    }
+}
+
+void Model::set_lights(Shader &shader, AmbientLight& ambient_light, std::vector<PointLight> &pointLights, std::vector<SpotLight> &spotLights){
+    ambient_light.linkShader(shader);
+
+    shader.setInt("pointLights_num", pointLights.size());
+    for(size_t i = 0; i < pointLights.size(); i++){
+        pointLights[i].setIndex(i);
+        pointLights[i].linkShader(shader);
+    }
+
+    shader.setInt("spotLights_num", spotLights.size());
+    for(size_t i = 0; i < spotLights.size(); i++){
+        spotLights[i].setIndex(i);
+        spotLights[i].linkShader(shader);
     }
 }
 

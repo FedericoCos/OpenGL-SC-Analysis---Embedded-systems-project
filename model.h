@@ -5,6 +5,10 @@
 
 #include "helpers.h"
 
+#include "ambientlight.h"
+#include "pointlight.h"
+#include "spotlight.h"
+
 
 class Model{
 public:
@@ -16,7 +20,9 @@ public:
         loadModel(path);
     }
 
-    void Draw(Shader &shader);
+    void Draw(Shader &shader, bool use_text = true, unsigned int shadowID = 0);
+    void set_lights(Shader &shader, AmbientLight& ambient_light, std::vector<PointLight> &pointLights, std::vector<SpotLight> &spotLights);
+
 private:
     // model data
     std::vector<Mesh> meshes;
