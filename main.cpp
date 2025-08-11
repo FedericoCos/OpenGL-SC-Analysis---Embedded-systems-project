@@ -9,9 +9,8 @@ void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int height
 }
 
 int Engine::init(int cubes, bool imgui, bool save){
-    // INIZIALIZZAZIONE FINESTRA
 
-    // GLFW initialization
+    // GLFW window initialization
     glfwInit();
     // First specify version of OpenGL
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4); // first argument is what we want to configure
@@ -28,9 +27,6 @@ int Engine::init(int cubes, bool imgui, bool save){
     glfwMakeContextCurrent(window);
 
     // GLAD initialization
-    /**
-     * GLAD contains alla the fucntions not available in system OpenGL Library
-     */
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
@@ -42,102 +38,39 @@ int Engine::init(int cubes, bool imgui, bool save){
     glfwSetFramebufferSizeCallback(window, Engine::framebuffer_size_callback);
 
 
-    stbi_set_flip_vertically_on_load(true);
     tracker.init(save);
-    is_imgui = imgui;
-
-    tr.resize(CUBES);
-    sc.resize(CUBES);
-    rot.resize(CUBES);
-    trans.resize(CUBES);
-
-    cubes_tot = cubes;
-    num_lights = 10;
-
-    // Random variables for cubes
-    for(int i = 0; i < CUBES; i++){
-        tr[i] = std::max((rand() % 1000 * 0.1f), 0.5f) * glm::normalize(glm::vec3(rand() % 10 - 5, rand() % 10 - 5, rand() % 10 - 5));
-        sc[i] = glm::vec3(std::max(rand() % 10 * 0.1f, 0.1f));
-        rot[i] = glm::normalize(glm::vec3(std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f), std::min((rand() % 10 - 5) * 0.1f, 0.1f)));
-    }
 
     init_shaders();
     init_VAO();
-    init_buffers();
     init_textures();
 
-    // ←← COMPUTE SETUP: create an RGBA32F texture and bind it to image unit 0
+    // COMPUTE SETUP: create an RGBA32F texture and bind it to image unit 0
     glGenTextures(1, &compTex);
     glBindTexture(GL_TEXTURE_2D, compTex);
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, WIN_WIDTH, WIN_HEIGHT);
+    tracker.trackVramAllocation( size_t(WIN_WIDTH) * size_t(WIN_HEIGHT) * 16 );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindImageTexture(0, compTex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
-    // compile & link your Menger‐sponge compute shader
+    // compile & link Menger‐sponge compute shader
     mengerCS = new ComputeShader("shaders/compute_advanced_menger.comp");
-    // ←← end COMPUTE SETUP
-
-    // create lvalues so Camera(glm::vec3&, glm::vec3&, …) will accept them
-    glm::vec3 camPos(0.0f, 0.0f, 3.0f);
-    glm::vec3 camTar(0.0f, 0.0f, -1.0f);
-    cam = new Camera(camPos, camTar, 30.0f, 2.5f);
-    // To disable vsync
-    glfwSwapInterval(0);
 
     std::cout << "GL Version: " << glGetString(GL_VERSION) << "\n";
-
 
     return 0;
 }
 
 void Engine::process_input(){
-    // Refreshing the input
-    right_input.x = 0;
-    right_input.y = 0;
-    left_input.x = 0;
-    left_input.y = 0;
 
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
         glfwSetWindowShouldClose(window, true);
-    }
-
-    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
-        right_input.x = 1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
-        right_input.x = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
-        right_input.y = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
-        right_input.y = 1;
-    }
-
-    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS){
-        left_input.x = 1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS){
-        left_input.x = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS){
-        left_input.y = -1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS){
-        left_input.y = 1;
-    }
-    
+    }    
 }
 
 void Engine::init_VAO(){
-    // VAO Sono dei container è come avere dei box che ti contengono un set di dati
-    // quindi dentro un vao avrai i dati dei vertii, normali, colori, etc
-    // E' solo un container, come una scatola, non possiede i dati per se
-
-    // Genrating VAO
-    // glGenVertexArrays(NUM, VAO);
-    glGenVertexArrays(1, &cVAO);
-    glGenVertexArrays(1, &lightVAO);
-
     // fullscreen quad
     float quadVerts[] = {
     // pos      // uv
@@ -151,6 +84,8 @@ void Engine::init_VAO(){
     glBindVertexArray(quadVAO);
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts, GL_STATIC_DRAW);
+    tracker.trackVramAllocation(sizeof(quadVerts));
+    tracker.trackDataUpload(sizeof(quadVerts));
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,4*sizeof(float),(void*)0);
     glEnableVertexAttribArray(1);
@@ -158,78 +93,12 @@ void Engine::init_VAO(){
     glBindVertexArray(0);
 }
 
-void Engine::init_buffers(){
-    glGenBuffers(1, &cVBO);
-    glGenBuffers(1, &cEBO);
-
-    // guarda qui, bindi il VAO per dirgli "le prossime cose che definisco, mettile qui"
-    glBindVertexArray(cVAO);
-
-    // Il VBO sono effettivamente i vertici, normali e company
-    glBindBuffer(GL_ARRAY_BUFFER, cVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW); // copies vertices on the GPU (buffer memory)
-    tracker.trackVramAllocation(sizeof(cube));
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    // GLI EBO sono gli indici, perchè un vertice può fare parte di più triangoli
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cube_indices), cube_indices, GL_STATIC_DRAW);
-    tracker.trackVramAllocation(sizeof(cube_indices));
-
-
-    // vedi qui bindo l'altro VAO e poi ci salvo nuovo cose
-    glBindVertexArray(lightVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, cVBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cEBO);
-
-    glBindVertexArray(0);
-
-}
-
 void Engine::init_shaders(){
-    // CREAZIONE SHADER
-    shader = Shader("shaders/vertex.glsl", "shaders/fragment.glsl");
-    light_shader = Shader("shaders/vertex.glsl", "shaders/fragment_light.glsl");
-    model_shader = Shader("shaders/vertex_model.glsl", "shaders/fragment_model.glsl");
+    // shader initialization
     screen_shader = Shader("shaders/screen.vert", "shaders/screen.frag");
 }
 
 void Engine::init_textures(){
-    int width, height, nrChannels;
-
-    // load container2
-    unsigned char* data = stbi_load("textures/container2.png", &width, &height, &nrChannels, 0);
-    if(!data){
-        std::cerr << "Failed to load textures/container2.png\n";
-        exit(1);
-    }
-    glGenTextures(2, texture);
-    glBindTexture(GL_TEXTURE_2D, texture[0]);
-    tracker.countTextureBind();
-    tracker.trackVramAllocation(width * height * 3);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(data);
-
-    // load container2_specular
-    data = stbi_load("textures/container2_specular.png", &width, &height, &nrChannels, 0);
-    if(data){
-        glBindTexture(GL_TEXTURE_2D, texture[1]);
-        tracker.countTextureBind();
-        tracker.trackVramAllocation(width * height * 3);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        stbi_image_free(data);
-    }
-
     // load wall.jpg for compute-shader sampling
     int w, h, n;
     unsigned char* wallData = stbi_load("textures/wall.jpg", &w, &h, &n, 0);
@@ -245,25 +114,15 @@ void Engine::init_textures(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_REPEAT);
     GLenum fmt = (n == 4 ? GL_RGBA : GL_RGB);
     glTexImage2D(GL_TEXTURE_2D, 0, fmt, w, h, 0, fmt, GL_UNSIGNED_BYTE, wallData);
+    int bpp = (fmt == GL_RGBA ? 4 : 3);
+    wallW = w; wallH = h; wallBpp = bpp;
+    tracker.trackVramAllocation( size_t(w) * size_t(h) * bpp );
+    tracker.trackDataUpload(    size_t(w) * size_t(h) * bpp );
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(wallData);
 }
 
 void Engine::render_loop(){
-    glfwWindowHint(GLFW_DEPTH_BITS, 24);
-    glEnable(GL_DEPTH_TEST);
-
-    projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
-
-    // ImGui
-    if(is_imgui){
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
-        ImGui::StyleColorsDark();
-        ImGui_ImplGlfw_InitForOpenGL(window, true);
-        ImGui_ImplOpenGL3_Init("#version 330");
-    }
 
     while(!glfwWindowShouldClose(window))
     {   
@@ -273,37 +132,38 @@ void Engine::render_loop(){
         dtime = t - past_time;
         past_time = t;
         process_input();
-        cam -> update(right_input, left_input, dtime);
+        tracker.beginCpuRender();
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         // bind wall texture to image unit 0
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, wallTex);
-        glUniform1i(glGetUniformLocation(mengerCS->ID, "iChannel0"), 0);
+        tracker.countTextureBind();
 
-        // ←← COMPUTE DISPATCH
+        // COMPUTE DISPATCH
         mengerCS->use();
+        tracker.countShaderBind();
+        glUniform1i(glGetUniformLocation(mengerCS->ID, "iChannel0"), 0);
         glUniform1f(glGetUniformLocation(mengerCS->ID, "iTime"),  glfwGetTime());
         glUniform2f(glGetUniformLocation(mengerCS->ID, "iResolution"),
                     float(WIN_WIDTH), float(WIN_HEIGHT));
         mengerCS->dispatch( (WIN_WIDTH+15)/16, (WIN_HEIGHT+15)/16, 1 );
         mengerCS->barrier();
-        // ←← end COMPUTE DISPATCH
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         screen_shader.use();
+        tracker.countShaderBind();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, compTex);
+        tracker.countTextureBind();
         glUniform1i(glGetUniformLocation(screen_shader.ID, "tex"), 0);
         glBindVertexArray(quadVAO);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        tracker.countDrawCall();
+        tracker.countTriangles(2);
 
-        //draw();
-
-        //if(is_imgui){
-        //    draw_imgui();
-        //}
+        tracker.endCpuRender();
 
         glfwSwapBuffers(window);
         glfwPollEvents(); 
@@ -312,177 +172,18 @@ void Engine::render_loop(){
         tracker.printStats();
     }
 
-    // Deletes all ImGUI instances
-    if(is_imgui){
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
-    }
+    glDeleteVertexArrays(1, &quadVAO);
+    glDeleteBuffers(1, &quadVBO);
+    tracker.trackVramDeallocation(sizeof(float) * 4 * 4);
 
-    glDeleteVertexArrays(1, &cVAO);
-    glDeleteBuffers(1, &cVBO);
-    glDeleteBuffers(1, &cEBO);
-    //glDeleteProgram(shaderProgram);
+    glDeleteTextures(1, &compTex);
+    tracker.trackVramDeallocation( size_t(WIN_WIDTH) * size_t(WIN_HEIGHT) * 16 );
+
+    glDeleteTextures(1, &wallTex);
+    tracker.trackVramDeallocation(size_t(wallW) * size_t(wallH) * wallBpp);
 
     glfwTerminate();
 }
-
-void Engine::draw(){
-    tracker.beginCpuRender();
-
-    glm::mat4 view = cam -> viewAtMat();
-
-    /* light_shader.use();
-    tracker.countShaderBind();
-    glBindVertexArray(lightVAO);
-    light_shader.setMatrix("view", view);
-    light_shader.setMatrix("projection", projection);
-
-    int i;
-    for (i = 0; i < num_lights; i++) {
-        trans[i] = glm::mat4(1.0f);
-        trans[i] = glm::rotate(trans[i], rot_speed * (float)glfwGetTime(), rot[i]);
-        trans[i] = glm::scale(trans[i], sc[i]);
-        trans[i] = glm::translate(trans[i], spread * tr[i]);
-        trans[i] = glm::rotate(trans[i], rot_speed * (float)glfwGetTime(), rot[i]);
-
-        light_shader.setMatrix("model", trans[i]);
-
-        tracker.countDrawCall();
-        tracker.countTriangles(12 * cubes_tot);
-        //glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        
-    }
-
-    shader.use();
-    tracker.countShaderBind();
-    glBindVertexArray(cVAO);
-
-    shader.setInt("material.diffuse", 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture[0]);
-    tracker.countTextureBind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-    shader.setInt("material.specular", 1);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture[1]);
-    tracker.countTextureBind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-
-
-    shader.setMatrix("view", view);
-    shader.setMatrix("projection", projection);
-    shader.setVector3("viewPos", cam -> position);
-
-    glm::vec3 objColor(1.f, .5f, .31f);
-    glm::vec3 lightColor(1.f, 1.f, 1.f);
-    shader.setVector3("objectColor", objColor);
-
-    shader.setInt("numLights", num_lights);
-    shader.setFloat("material.shininess", 32.0f);
-
-    glm::vec3 ambientLight(.2f, .2f, .2f);
-    glm::vec3 diffuseLight(.5f, .5f, .5f);
-    glm::vec3 specularLight(1.f, 1.f, 1.f);
-    
-    glm::vec3 direction(-1.f, -1.f, 0.f);
-
-    shader.setVector3("directionalLight.direction", direction);
-    shader.setVector3("directionalLight.ambient", ambientLight);
-    shader.setVector3("directionalLight.diffuse", diffuseLight);
-    shader.setVector3("directionalLight.specular", specularLight);
-
-
-    for (i = 0; i < num_lights; i++) {
-        glm::vec3 position = trans[i] * glm::vec4(0.f, 0.f, 0.f, 1.f);
-        shader.setVector3("lights[" + std::to_string(i) + "].position", position);
-        shader.setVector3("lights[" + std::to_string(i) + "].ambient", ambientLight);
-        shader.setVector3("lights[" + std::to_string(i) + "].diffuse", diffuseLight);
-        shader.setVector3("lights[" + std::to_string(i) + "].specular", specularLight);
-    }
-
-    for (;i < cubes_tot; i++) {
-        trans[i] = glm::mat4(1.0f);
-        trans[i] = glm::scale(trans[i], sc[i]);
-        trans[i] = glm::translate(trans[i], spread * tr[i]);
-        trans[i] = glm::rotate(trans[i], rot_speed * (float)glfwGetTime(), rot[i]);
-
-        shader.setMatrix("model", trans[i]);
-
-        tracker.countDrawCall();
-        tracker.countTriangles(12 * cubes_tot);
-        //glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-    } */
-
-    // qua dico usa sto shader ora
-    model_shader.use();
-    model_shader.setMatrix("projection", projection);
-    model_shader.setMatrix("view", view);
-
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
-    model_shader.setMatrix("model", model);
-
-    model_obj.Draw(model_shader);
-
-
-
-
-    glBindVertexArray(0);
-
-    tracker.endCpuRender();
-
-}
-
-void Engine::draw_imgui(){
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::Begin("STATS");
-    ImGui::Text("FPS: %.1f", 1.0f / dtime);
-    ImGui::End();
-    
-    ImGui::Begin("CUBES");
-    ImGui::InputInt("Num Cubes", &cubes_tot);
-    cubes_tot = std::min(CUBES, cubes_tot);
-    ImGui::InputInt("Num Lights", &num_lights);
-    num_lights = std::min(num_lights, cubes_tot);
-    ImGui::InputFloat("Spread fact", &spread);
-    ImGui::InputFloat("Rot Speed", &rot_speed);
-    ImGui::End();
-
-    ImGui::Begin("CAMERA");
-    int w = width, h = height;
-    float np = near_plane, fp = far_plane, f = fov;
-    ImGui::InputFloat("FOV", &f);
-    ImGui::InputFloat("Near Plane", &np);
-    ImGui::InputFloat("Far Plane", &fp);
-    glfwGetWindowSize(window, &w, &h);
-    if(
-        w != width ||
-        h != height ||
-        np != near_plane ||
-        fp != far_plane ||
-        f != fov
-    ){
-        width = w;
-        height = h;
-        near_plane = np;
-        far_plane = fp;
-        fov = f;
-        projection = glm::perspective(glm::radians(fov), width * 1.f/height, near_plane, far_plane);
-    }
-
-
-    ImGui::End();
-
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
 
 int main(int argc, char * argv[]){
     if(argc < 4){
