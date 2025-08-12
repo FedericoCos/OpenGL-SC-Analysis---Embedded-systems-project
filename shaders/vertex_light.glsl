@@ -1,5 +1,5 @@
 #version 100
-// GLSL for OpenGL ES 2.0
+precision mediump float;
 
 // Vertex attributes (inputs)
 attribute vec3 aPos;

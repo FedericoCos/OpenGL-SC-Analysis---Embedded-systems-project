@@ -22,6 +22,7 @@
 #include "spotlight.h"
 #include "pointlight.h"
 #include "ambientlight.h"
+#define MAX_LIGHTS 100
 
 // Wall Object
 #define WALLS 5 // NUMBER OF WALLS
@@ -95,7 +96,7 @@ private:
 
     // CUBE LIGHTS VARIABLES
     std::vector<Cube> cubes;
-    int num_lights = 6;
+    int num_lights = 100;
     std::vector<glm::vec3> cube_positions;
     std::vector<glm::vec4> cube_colors;
     float min_cube_spread = 10.f;

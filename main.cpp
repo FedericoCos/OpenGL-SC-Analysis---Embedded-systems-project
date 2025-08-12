@@ -136,7 +136,7 @@ void Engine::init_scene_objects(){
     std::cout << "Initializing Cube lights..." << std::endl;
     cube_positions.resize(num_lights);
     cube_colors.resize(num_lights);
-    cubes.resize(num_lights);
+    cubes.resize(MAX_LIGHTS);
     glm::vec3 s(2.f, 2.f, 2.f);
     glm::vec4 r(1.f, 1.f, 1.f, .0f);
     for(size_t i = 0; i < num_lights; i++){
@@ -154,6 +154,15 @@ void Engine::init_scene_objects(){
 
         cubes[i] = Cube("shaders/vertex_light.glsl", "shaders/fragment_light.glsl", true);
         cubes[i].init(cube_positions[i], s, r);
+    }
+
+    for(size_t i = num_lights; i < MAX_LIGHTS; i++){
+
+        glm::vec3 zero(0.0f);
+        glm::vec4 zero4(0.f);
+
+        cubes[i] = Cube("shaders/vertex_light.glsl", "shaders/fragment_light.glsl", true);
+        cubes[i].init(zero, zero, zero4);
     }
     std::cout << "Cube lights initialized" << std::endl;
 
@@ -266,7 +275,7 @@ void Engine::render_loop(){
         eglSwapBuffers(eglDisplay, eglSurface);
 
         tracker.endFrame();
-        tracker.printStats();
+        // tracker.printStats();
     }
 
 

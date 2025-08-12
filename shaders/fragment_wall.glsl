@@ -1,6 +1,4 @@
 #version 100
-// Note: GLSL ES 1.00 does not use version 'core'
-
 // Fragment shaders in GLES require a default precision
 precision mediump float;
 
@@ -34,7 +32,6 @@ uniform SpotLight spotLights[2];
 uniform vec3 viewPos;
 uniform sampler2D shadowMap;
 
-// 'in' becomes 'varying'
 varying vec3 Normal;
 varying vec3 FragPos;
 varying vec3 Color;
@@ -48,19 +45,16 @@ float ShadowCalculation(vec4 fragPosLightSpace){
     if(projCoords.z > 1.0)
         return 0.0;
     
-    // 'texture' becomes 'texture2D' in GLSL ES 1.00
     float closestDepth = texture2D(shadowMap, projCoords.xy).r;
     float currentDepth = projCoords.z;
     
-    // Bias might need tweaking on different hardware
-    float bias = 0.0005;
+    float bias = 0.001;
     float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
 
     return shadow;
 }
 
 void main(){
-    // The main logic is mostly fine, but the output must be to gl_FragColor
     vec3 ambient = vec3(0.0);
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
@@ -109,6 +103,5 @@ void main(){
     float shadow = ShadowCalculation(FragPosLightSpace);
     vec3 result = ambient + (1.0 - shadow) * (diffuse + specular);
 
-    // Final output must be to the built-in gl_FragColor
     gl_FragColor = vec4(result, 1.0);
 }
