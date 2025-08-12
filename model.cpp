@@ -3,9 +3,11 @@
 
 
 void Model::Draw(Shader &shader, bool use_text, unsigned int shadowID){
+    int t = 0;
     for(unsigned int i = 0; i < meshes.size(); i++){
-        meshes[i].Draw(shader, use_text, shadowID);
+        t += meshes[i].Draw(shader, use_text, shadowID);
     }
+    triangles = t;
 }
 
 void Model::set_lights(Shader &shader, AmbientLight& ambient_light, std::vector<PointLight> &pointLights, std::vector<SpotLight> &spotLights){

@@ -9,6 +9,9 @@ void Engine::framebuffer_size_callback(GLFWwindow* window, int w, int h){
 }
 
 int Engine::init(){
+    bool saveCsv = true;
+    tracker.init(saveCsv, 100, "scene_stats.csv");
+
     // INIZIALIZZAZIONE FINESTRA
 
     // GLFW initialization
@@ -199,6 +202,7 @@ void Engine::render_loop(){
 
     while(!glfwWindowShouldClose(window))
     {
+        tracker.beginFrame();
         glfwGetWindowSize(window, &width, &height);
 
 
@@ -208,6 +212,8 @@ void Engine::render_loop(){
         process_input();
         cam -> update(right_input, left_input, dtime);
 
+         tracker.setActiveLights(pointLights.size(), spotLights.size());
+
         // First, let's set the spotligt
         light_projection = glm::perspective(glm::radians(2 * fov), 1.f, 0.1f, 50.f);
         spotLights[0].align_light(cam -> getLightPos(), 
@@ -215,9 +221,14 @@ void Engine::render_loop(){
                                     cam -> up);
         light_space_matrix = light_projection * spotLights[0].getLookAt();
 
+        tracker.beginShadowPass();
         glCullFace(GL_FRONT);
         shadow_pass();
         glCullFace(GL_BACK);
+
+        tracker.endShadowPass();
+
+        tracker.beginCpuRender();
 
         glViewport(0, 0, width, height);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
@@ -225,8 +236,13 @@ void Engine::render_loop(){
 
         draw();
 
+        tracker.endCpuRender();
+
         glfwSwapBuffers(window);
         glfwPollEvents(); 
+
+        tracker.endFrame();
+        // tracker.printStats();
     }
 
     glfwTerminate();
@@ -252,11 +268,13 @@ void Engine::shadow_pass(){
     // RENDERING WALLS
     for(int i = 0; i < 5; i++){
         walls[i].draw(simpleDepthShader);
+        tracker.countShadowDraw();
     }
 
     // RENDERING CUBES
     for(size_t i = 0; i < num_lights; i++){
         cubes[i].draw(simpleDepthShader);
+         tracker.countShadowDraw();
     }
 
     glm::mat4 model = glm::mat4(1.0f);
@@ -265,6 +283,7 @@ void Engine::shadow_pass(){
     simpleDepthShader.setMatrix("model", model);
 
     backpack_model.Draw(simpleDepthShader, false);
+    tracker.countShadowDraw();
 
     glBindVertexArray(0);
 
@@ -301,6 +320,7 @@ void Engine::draw(){
 
         // Draw call
         walls[i].draw();
+        tracker.countWallDraw(2);
     }
 
     // RENDERING LIGHTS CUBE
@@ -320,6 +340,7 @@ void Engine::draw(){
         current_shader.setVec4("color", cube_colors[i]);
 
         cubes[i].draw();
+        tracker.countPointLightDraw(12);
     }
 
     // RENDERING MODEL
@@ -336,6 +357,8 @@ void Engine::draw(){
 
     backpack_model.set_lights(backpack_shader, ambientLight, pointLights, spotLights);
     backpack_model.Draw(backpack_shader, true, depthMap);
+
+    tracker.countModelDraw(backpack_model.triangle_count());
 
     glBindVertexArray(0);
 }

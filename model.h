@@ -22,12 +22,17 @@ public:
 
     void Draw(Shader &shader, bool use_text = true, unsigned int shadowID = 0);
     void set_lights(Shader &shader, AmbientLight& ambient_light, std::vector<PointLight> &pointLights, std::vector<SpotLight> &spotLights);
+    int triangle_count(){
+        return triangles;
+    }
 
 private:
     // model data
     std::vector<Mesh> meshes;
     std::string directory;
     std::vector<Texture> textures_loaded;
+
+    int triangles;
 
     void loadModel(std::string path);
     void processNode(aiNode *node, const aiScene *scene);
