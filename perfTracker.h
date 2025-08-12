@@ -60,7 +60,7 @@ public:
                         << "ShadowPass(ms),WallsDC,PointsDC,ModelDC,ShadowDC,"
                         << "WallsTris,PointsTris,ModelTris,"
                         << "PointLights,SpotLights,"
-                        << "VRAM(MB),Upload(KB)\n";
+                        << "VRAM(MB),Upload(KB),\n";
             } else {
                 std::cerr << "[PerfTracker] Failed to open CSV file: " << csvPath << "\n";
             }
