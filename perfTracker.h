@@ -3,32 +3,39 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
-#include <algorithm>
-#include <numeric>   
-#include <iomanip> 
-#include <fstream>  
+#include <numeric>
+#include <iomanip>
+#include <fstream>
 
 class PerfTracker {
 public:
-    // Clock
     using Clock = std::chrono::high_resolution_clock;
-    std::chrono::time_point<Clock> frameStart, cpuRenderStart;
+    std::chrono::time_point<Clock> frameStart, cpuRenderStart, shadowPassStart;
 
-    // Frame timings (in milliseconds)
+    // Frame timings
     double frameTime = 0.0, cpuRenderTime = 0.0, gpuWaitTime = 0.0;
-    double minFrame = 9999.0, maxFrame = 0.0, avgFrame = 0.0;
-    double fps = 0.0;
+    double minFrame = 9999.0, maxFrame = 0.0, avgFrame = 0.0, fps = 0.0;
+    double shadowPassTime = 0.0;
 
     // Frame counters
     size_t frameCount = 0;
-    int drawCalls = 0;
-    int trisThisFrame = 0;
 
-    // State change counters
-    int shaderBinds = 0;
-    int textureBinds = 0;
+    // Scene-specific draw calls
+    int wallDrawCalls = 0;
+    int pointLightDrawCalls = 0;
+    int modelDrawCalls = 0;
+    int shadowPassDrawCalls = 0;
 
-    // Memory tracking (in bytes)
+    // Scene-specific triangles
+    int wallTris = 0;
+    int pointLightTris = 0;
+    int modelTris = 0;
+
+    // Lights
+    int activePointLights = 0;
+    int activeSpotLights = 0;
+
+    // Memory
     long long totalVramAllocated = 0;
     long long dataUploadedThisFrame = 0;
 
@@ -37,7 +44,6 @@ public:
     bool csvEnabled = false;
 
 private:
-    // For FPS smoothing
     std::vector<double> frameHistory;
     size_t historySize = 100;
 
@@ -50,21 +56,21 @@ public:
             csvFile.open(csvPath, std::ios::out);
             if (csvFile.is_open()) {
                 csvEnabled = true;
-                csvFile << "FPS,FrameTime(ms),MinFrame(ms),MaxFrame(ms),AvgFrame(ms),CPUTime(ms),GPUWait(ms),DrawCalls,Triangles,VRAM(MB),Upload(KB),\n";
+                csvFile << "FPS,Frame(ms),Min(ms),Max(ms),Avg(ms),CPU(ms),GPUWait(ms),"
+                        << "ShadowPass(ms),WallsDC,PointsDC,ModelDC,ShadowDC,"
+                        << "WallsTris,PointsTris,ModelTris,"
+                        << "PointLights,SpotLights,"
+                        << "VRAM(MB),Upload(KB),\n";
             } else {
                 std::cerr << "[PerfTracker] Failed to open CSV file: " << csvPath << "\n";
             }
-
         }
     }
 
     void beginFrame() {
         frameStart = Clock::now();
-        // Reset per-frame counters
-        drawCalls = 0;
-        trisThisFrame = 0;
-        shaderBinds = 0;
-        textureBinds = 0;
+        wallDrawCalls = pointLightDrawCalls = modelDrawCalls = shadowPassDrawCalls = 0;
+        wallTris = pointLightTris = modelTris = 0;
         dataUploadedThisFrame = 0;
     }
 
@@ -77,12 +83,20 @@ public:
         cpuRenderTime = std::chrono::duration<double, std::milli>(cpuEnd - cpuRenderStart).count();
     }
 
+    void beginShadowPass() {
+        shadowPassStart = Clock::now();
+    }
+
+    void endShadowPass() {
+        auto shadowEnd = Clock::now();
+        shadowPassTime = std::chrono::duration<double, std::milli>(shadowEnd - shadowPassStart).count();
+    }
+
     void endFrame() {
         auto frameEnd = Clock::now();
         frameTime = std::chrono::duration<double, std::milli>(frameEnd - frameStart).count();
         gpuWaitTime = frameTime - cpuRenderTime;
 
-        // Update history for smoothed FPS
         frameHistory[frameCount % historySize] = frameTime;
         frameCount++;
 
@@ -102,40 +116,47 @@ public:
                     << avgFrame << ","
                     << cpuRenderTime << ","
                     << gpuWaitTime << ","
-                    << drawCalls << ","
-                    << trisThisFrame << ","
+                    << shadowPassTime << ","
+                    << wallDrawCalls << ","
+                    << pointLightDrawCalls << ","
+                    << modelDrawCalls << ","
+                    << shadowPassDrawCalls << ","
+                    << wallTris << ","
+                    << pointLightTris << ","
+                    << modelTris << ","
+                    << activePointLights << ","
+                    << activeSpotLights << ","
                     << totalVramAllocated / (1024.0 * 1024.0) << ","
-                    << dataUploadedThisFrame / 1024.0 << ","
-                    << "\n";
+                    << dataUploadedThisFrame / 1024.0 << "\n";
         }
     }
 
-    // --- Counter Methods ---
-    void countDrawCall() { drawCalls++; }
-    void countTriangles(int tris) { trisThisFrame += tris; }
-    void countShaderBind() { shaderBinds++; }
-    void countTextureBind() { textureBinds++; }
+    // Scene-specific counting
+    void countWallDraw(int tris) { wallDrawCalls++; wallTris += tris; }
+    void countPointLightDraw(int tris) { pointLightDrawCalls++; pointLightTris += tris; }
+    void countModelDraw(int tris) { modelDrawCalls++; modelTris += tris; }
+    void countShadowDraw() { shadowPassDrawCalls++; }
 
-    // --- Memory Tracking Methods ---
+    void setActiveLights(int point, int spot) {
+        activePointLights = point;
+        activeSpotLights = spot;
+    }
+
+    // Memory tracking
     void trackVramAllocation(long long bytes) { totalVramAllocated += bytes; }
     void trackVramDeallocation(long long bytes) { totalVramAllocated -= bytes; }
     void trackDataUpload(long long bytes) { dataUploadedThisFrame += bytes; }
 
     void printStats() {
-        // Convert memory to MB for readability
-        double vramMB = totalVramAllocated / (1024.0 * 1024.0);
-        double uploadKB = dataUploadedThisFrame / 1024.0;
-
-        std::cout << std::fixed << std::setprecision(4)
-              << "FPS: " << fps
-              << " | Frame: " << frameTime << "ms"
-              << " (Min: " << minFrame << "ms, Max: " << maxFrame << "ms, Avg: " << avgFrame << "ms)" 
-              << " | CPU: " << cpuRenderTime << "ms"
-              << " | GPU Wait: " << gpuWaitTime << "ms"
-              << " | Calls: " << drawCalls
-              << " | Tris: " << (trisThisFrame / 1000) << "k"
-              << " | VRAM: " << vramMB << "MB"
-              << " | Upload: " << uploadKB << "KB"
-              << std::endl;
+        std::cout << std::fixed << std::setprecision(2)
+                  << "FPS: " << fps
+                  << " | Frame: " << frameTime << "ms"
+                  << " (CPU: " << cpuRenderTime << "ms, GPU Wait: " << gpuWaitTime << "ms)"
+                  << " | Shadow Pass: " << shadowPassTime << "ms"
+                  << " | Walls: " << wallDrawCalls << " DC, " << wallTris << " tris"
+                  << " | Lights: " << pointLightDrawCalls << " DC, " << pointLightTris << " tris"
+                  << " | Model: " << modelDrawCalls << " DC, " << modelTris << " tris"
+                  << " | PLights: " << activePointLights << ", SLight: " << activeSpotLights
+                  << std::endl;
     }
 };
