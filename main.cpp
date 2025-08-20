@@ -140,7 +140,7 @@ void Engine::init_scene_objects(){
 
     // MODEL INITIALIZATION
     std::cout << "Initializing model..." << std::endl;
-    backpack_model = Model("/home/zancanonzanca/Desktop/OpenGL-SC-Analysis---Embedded-systems-project/resources/backpack/backpack.obj");
+    backpack_model = Model("/home/znz/Desktop/OpenGL-SC-Analysis---Embedded-systems-project/resources/backpack/backpack.obj");
     backpack_shader = Shader("shaders/vertex_model.glsl", "shaders/fragment_model.glsl");
     std::cout << "Model initialized!" << std::endl;
 }
