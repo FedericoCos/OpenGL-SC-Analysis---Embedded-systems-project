@@ -87,9 +87,11 @@ public:
         frameCount++;
 
         double sum = std::accumulate(frameHistory.begin(), frameHistory.end(), 0.0);
-        size_t currentHistorySize = (frameCount < historySize) ? frameCount : historySize;
-        avgFrame = sum / currentHistorySize;
-        fps = (avgFrame > 0.0) ? (1000.0 / avgFrame) : 0.0;
+    size_t currentHistorySize = (frameCount < historySize) ? frameCount : historySize;
+    avgFrame = sum / currentHistorySize;
+
+    // Instantaneous FPS
+    fps = (frameTime > 0.0) ? (1000.0 / frameTime) : 0.0;
 
         minFrame = std::min(minFrame, frameTime);
         maxFrame = std::max(maxFrame, frameTime);
